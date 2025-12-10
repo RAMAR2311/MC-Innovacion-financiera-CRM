@@ -1,0 +1,488 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-4">
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0">Información del Cliente</h5>
+            </div>
+            <div class="card-body">
+                <h4 class="card-title">{{ client.nombre }}</h4>
+                <p class="card-text"><strong>Email:</strong> {{ client.email }}</p>
+                <p class="card-text"><strong>Teléfono:</strong> {{ client.telefono }}</p>
+                <p class="card-text"><strong>ID:</strong> {{ client.tipo_id }} {{ client.numero_id }}</p>
+                <p class="card-text"><strong>Ciudad:</strong> {{ client.ciudad }}</p>
+                <p class="card-text"><strong>Estado:</strong>
+                    <span class="badge bg-secondary">{{ client.estado }}</span>
+                </p>
+                <hr>
+                <h6>Motivo de Consulta:</h6>
+                <p>{{ client.motivo_consulta }}</p>
+            </div>
+        </div>
+
+        {% if current_user.rol == 'Admin' %}
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-secondary text-white">
+                <h5 class="mb-0">Acciones</h5>
+            </div>
+            <div class="card-body">
+                <form action="{{ url_for('main.update_status', client_id=client.id) }}" method="POST">
+                    <div class="mb-3">
+                        <label for="new_status" class="form-label">Cambiar Estado</label>
+                        <select class="form-select" name="new_status">
+                            <option value="Pendiente_Analisis" {% if client.estado=='Pendiente_Analisis' %}selected{%
+                                endif %}>Pendiente Análisis</option>
+                            <option value="Con_Contrato" {% if client.estado=='Con_Contrato' %}selected{% endif %}>Con
+                                Contrato</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">Actualizar Estado</button>
+                </form>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if current_user.rol == 'Abogado' %}
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-secondary text-white">
+                <h5 class="mb-0">Gestión del Caso</h5>
+            </div>
+            <div class="card-body">
+                <form action="{{ url_for('main.update_status', client_id=client.id) }}" method="POST">
+                    <div class="mb-3">
+                        <label for="new_status" class="form-label">Cambiar Estado</label>
+                        <select class="form-select" name="new_status">
+                            <option value="Pendiente_Analisis" {% if client.estado=='Pendiente_Analisis' %}selected{%
+                                endif %}>Pendiente Análisis</option>
+                            <option value="Con_Analisis" {% if client.estado=='Con_Analisis' %}selected{% endif %}>Con
+                                Análisis</option>
+                            <option value="Con_Contrato" {% if client.estado=='Con_Contrato' %}selected{% endif %}>Con
+                                Contrato</option>
+                            <option value="Radicado" {% if client.estado=='Radicado' %}selected{% endif %}>Radicado
+                            </option>
+                            <option value="Finalizado" {% if client.estado=='Finalizado' %}selected{% endif %}>
+                                Finalizado</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">Actualizar Estado</button>
+                </form>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if current_user.rol == 'Analista' and client.estado in ['Nuevo', 'Informacion_Incompleta'] %}
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-warning text-dark">
+                <h5 class="mb-0">Acciones de Analista</h5>
+            </div>
+            <div class="card-body">
+                <p>Una vez completada la revisión inicial, envía el caso al departamento legal.</p>
+                <form action="{{ url_for('main.send_to_lawyer', client_id=client.id) }}" method="POST">
+                    <button type="submit" class="btn btn-dark w-100">Enviar a Abogado</button>
+                </form>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="col-md-8">
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">Archivos y Documentos</h5>
+            </div>
+            <div class="card-body">
+                <form action="{{ url_for('main.upload_file', client_id=client.id) }}" method="POST"
+                    enctype="multipart/form-data" class="row g-3 align-items-center mb-4">
+                    <div class="col-auto">
+                        <input type="file" class="form-control" name="file" required>
+                    </div>
+                    {% if current_user.rol == 'Abogado' %}
+                    <div class="col-auto">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="visible_para_analista"
+                                id="visibleCheck">
+                            <label class="form-check-label" for="visibleCheck">
+                                Visible para Analistas
+                            </label>
+                        </div>
+                    </div>
+                    {% endif %}
+                    <div class="col-auto">
+                        <button type="submit" class="btn btn-success">Subir Archivo</button>
+                    </div>
+                </form>
+
+                <h6>Documentos:</h6>
+                <ul class="list-group">
+                    {% for doc in documents %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <div>
+                            {{ doc.filename }}
+                            {% if current_user.rol == 'Abogado' %}
+                            <form action="{{ url_for('main.toggle_visibility', doc_id=doc.id) }}" method="POST"
+                                class="d-inline">
+                                <button type="submit"
+                                    class="btn btn-sm {% if doc.visible_para_analista %}btn-success{% else %}btn-secondary{% endif %} ms-2"
+                                    title="Cambiar visibilidad">
+                                    {% if doc.visible_para_analista %}
+                                    Visible
+                                    {% else %}
+                                    Privado
+                                    {% endif %}
+                                </button>
+                            </form>
+                            {% endif %}
+                            <small class="text-muted d-block">Subido por: {{ doc.uploaded_by.nombre_completo }}</small>
+                        </div>
+                        <a href="{{ url_for('main.download_file', filename=doc.filename) }}"
+                            class="btn btn-sm btn-outline-secondary">Descargar</a>
+                    </li>
+                    {% else %}
+                    <li class="list-group-item text-muted">No hay documentos disponibles.</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+
+        <!-- Financial Information Section -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-warning text-dark">
+                <h5 class="mb-0">Información Financiera y Análisis</h5>
+            </div>
+            <div class="card-body">
+                <!-- Add Obligation Form (Visible to All Authorized Roles) -->
+                <h6 class="mb-3">Agregar Nueva Obligación</h6>
+                <form action="{{ url_for('main.add_financial_obligation', client_id=client.id) }}" method="POST"
+                    class="row g-3 mb-4 align-items-end">
+                    <div class="col-md-3">
+                        <label class="form-label">Entidad</label>
+                        <input type="text" class="form-control" name="entidad" required>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Estado de la Deuda</label>
+                        <select class="form-select" name="estado" required>
+                            <option value="" selected disabled>Seleccionar...</option>
+                            <option value="Al día">Al día</option>
+                            <option value="Mora">Mora</option>
+                            <option value="Castigada">Castigada</option>
+                            <option value="Reportado">Reportado</option>
+                            <option value="Juridico">Jurídico</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Valor</label>
+                        <input type="number" step="0.01" class="form-control" name="valor" required>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Estado con Nosotros</label>
+                        <select class="form-select" name="estado_legal" required>
+                            <option value="Sin Iniciar">Sin Iniciar</option>
+                            <option value="En Proceso">En Proceso</option>
+                            <option value="Radicado">Radicado</option>
+                            <option value="Finalizado">Finalizado</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <button type="submit" class="btn btn-primary w-100">Agregar</button>
+                    </div>
+                </form>
+
+                <hr>
+
+                <!-- Obligations Table -->
+                <h6 class="mb-3">Obligaciones Registradas</h6>
+                <div class="table-responsive">
+                    <table class="table table-bordered table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Entidad</th>
+                                <th>Estado Deuda</th>
+                                <th>Valor</th>
+                                <th style="width: 200px;">Estado con Nosotros</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for obligation in client.financial_obligations %}
+                            <tr>
+                                <td>{{ obligation.entidad }}</td>
+                                <td>{{ obligation.estado }}</td>
+                                <td>${{ "{:,.0f}".format(obligation.valor) }}</td>
+                                <td>
+                                    <form
+                                        action="{{ url_for('main.update_legal_status', obligation_id=obligation.id) }}"
+                                        method="POST">
+                                        <select class="form-select form-select-sm" name="estado_legal"
+                                            onchange="this.form.submit()">
+                                            <option value="Sin Iniciar" {% if obligation.estado_legal=='Sin Iniciar'
+                                                %}selected{% endif %}>Sin Iniciar</option>
+                                            <option value="En Proceso" {% if obligation.estado_legal=='En Proceso'
+                                                %}selected{% endif %}>En Proceso</option>
+                                            <option value="Radicado" {% if obligation.estado_legal=='Radicado'
+                                                %}selected{% endif %}>Radicado</option>
+                                            <option value="Finalizado" {% if obligation.estado_legal=='Finalizado'
+                                                %}selected{% endif %}>Finalizado</option>
+                                        </select>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="4" class="text-center text-muted">No hay obligaciones registradas todavía.
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <hr>
+
+                <!-- Analysis Conclusion -->
+                <h6 class="mb-3">Conclusión del Análisis</h6>
+                {% if current_user.rol == 'Analista' %}
+                <form action="{{ url_for('main.update_analysis', client_id=client.id) }}" method="POST">
+                    <div class="mb-3">
+                        <textarea class="form-control" name="conclusion_analisis" rows="3"
+                            placeholder="Escribe aquí el análisis del caso...">{{ client.conclusion_analisis or '' }}</textarea>
+                    </div>
+                    <button type="submit" class="btn btn-secondary">Guardar Análisis</button>
+                </form>
+                {% else %}
+                <div class="p-3 bg-light border rounded">
+                    {{ client.conclusion_analisis or 'Sin análisis registrado.' }}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Payments and Contracting Section -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0">PAGOS</h5>
+            </div>
+            <div class="card-body">
+                {% set is_analyst = current_user.rol == 'Analista' %}
+
+                <!-- Diagnosis Section -->
+                <h6 class="mb-3">Diagnóstico Inicial</h6>
+                <form action="{{ url_for('main.save_payment_diagnosis', client_id=client.id) }}" method="POST"
+                    class="mb-4">
+                    <fieldset {% if is_analyst %}disabled{% endif %}>
+                        <div class="row g-3 align-items-end">
+                            <div class="col-md-4">
+                                <label class="form-label">Valor Diagnóstico</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">$</span>
+                                    <input type="number" step="0.01" class="form-control" name="valor"
+                                        value="{{ client.payment_diagnosis.valor if client.payment_diagnosis else '' }}">
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Fecha de Pago</label>
+                                <input type="date" class="form-control" name="fecha_pago"
+                                    value="{{ client.payment_diagnosis.fecha_pago if client.payment_diagnosis else '' }}">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Método de Pago</label>
+                                <select class="form-select" name="metodo_pago">
+                                    <option value="" selected disabled>Seleccionar...</option>
+                                    {% for metodo in ['Nequi', 'Daviplata', 'Bancolombia', 'Link de pago', 'Efectivo']
+                                    %}
+                                    <option value="{{ metodo }}" {% if client.payment_diagnosis and
+                                        client.payment_diagnosis.metodo_pago==metodo %}selected{% endif %}>
+                                        {{ metodo }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox" name="verificado"
+                                        id="checkVerificado" {% if client.payment_diagnosis and
+                                        client.payment_diagnosis.verificado %}checked{% endif %}>
+                                    <label class="form-check-label" for="checkVerificado">
+                                        Pago Verificado
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        {% if not is_analyst %}
+                        <div class="mt-2 text-end">
+                            <button type="submit" class="btn btn-sm btn-primary">Guardar Diagnóstico</button>
+                        </div>
+                        {% endif %}
+                    </fieldset>
+                </form>
+
+                <hr>
+
+                <!-- Contract Section -->
+                <h6 class="mb-3">Contrato y Cuotas</h6>
+                <form action="{{ url_for('main.save_contract_details', client_id=client.id) }}" method="POST"
+                    id="contractForm">
+                    <fieldset {% if is_analyst %}disabled{% endif %}>
+
+                        <!-- Header with Total & Percentage -->
+                        <div class="row g-3 mb-3 p-3 bg-light rounded border">
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Valor Total Contrato</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">$</span>
+                                    <input type="number" step="0.01" class="form-control" name="valor_total"
+                                        id="valorTotalContract"
+                                        value="{{ client.payment_contract.valor_total if client.payment_contract else '' }}"
+                                        required>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Porcentaje Pagado</label>
+                                <div class="input-group">
+                                    <input type="text" class="form-control text-end bg-white" id="porcentajePagado"
+                                        value="0%" readonly>
+                                    <span class="input-group-text">%</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Static Installment Rows -->
+                        <div id="installmentsContainer">
+                            {% set installments_map = {} %}
+                            {% if client.payment_contract and client.payment_contract.installments %}
+                            {% for inst in client.payment_contract.installments %}
+                            {% set _ = installments_map.update({inst.numero_cuota: inst}) %}
+                            {% endfor %}
+                            {% endif %}
+
+                            {% for i in range(1, 7) %}
+                            {% set inst = installments_map.get(i) %}
+                            <div class="row g-2 mb-2 align-items-center p-2 border-bottom">
+                                <div class="col-auto" style="width: 80px;">
+                                    <span class="badge bg-secondary w-100">Cuota {{ i }}</span>
+                                </div>
+                                <div class="col">
+                                    <input type="number" step="0.01" class="form-control form-control-sm cuota-valor"
+                                        name="cuota_{{ i }}_valor" placeholder="Valor"
+                                        value="{{ inst.valor if inst else '' }}">
+                                </div>
+                                <div class="col">
+                                    <input type="date" class="form-control form-control-sm" name="cuota_{{ i }}_fecha"
+                                        value="{{ inst.fecha_vencimiento if inst and inst.fecha_vencimiento else '' }}">
+                                </div>
+                                <div class="col">
+                                    <select class="form-select form-select-sm" name="cuota_{{ i }}_metodo">
+                                        <option value="" disabled {% if not inst or not inst.metodo_pago %}selected{%
+                                            endif %}>Método</option>
+                                        {% for metodo in ['Nequi', 'Daviplata', 'Bancolombia', 'Link de pago',
+                                        'Efectivo'] %}
+                                        <option value="{{ metodo }}" {% if inst and inst.metodo_pago==metodo
+                                            %}selected{% endif %}>{{ metodo }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col">
+                                    <select class="form-select form-select-sm cuota-estado" name="cuota_{{ i }}_estado">
+                                        <option value="Pendiente" {% if not inst or inst.estado=='Pendiente'
+                                            %}selected{% endif %}>Pendiente</option>
+                                        <option value="Pagada" {% if inst and inst.estado=='Pagada' %}selected{% endif
+                                            %}>Pagada</option>
+                                        <option value="En Mora" {% if inst and inst.estado=='En Mora' %}selected{% endif
+                                            %}>En Mora</option>
+                                    </select>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+
+                        {% if not is_analyst %}
+                        <div class="mt-3 text-end">
+                            <button type="submit" class="btn btn-primary">Guardar Contrato y Cuotas</button>
+                        </div>
+                        {% endif %}
+                    </fieldset>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% endblock %}
+
+    {% block scripts %}
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            console.log("Initializing Payments Calculation Script...");
+
+            const valorTotalInput = document.getElementById('valorTotalContract');
+            const porcentajeOutput = document.getElementById('porcentajePagado');
+
+            // Use more specific selectors if needed, but classes should work
+            const cuotaValores = document.querySelectorAll('.cuota-valor');
+            const cuotaEstados = document.querySelectorAll('.cuota-estado');
+
+            function calcularPorcentaje() {
+                // Debug values
+                const totalContratoVal = valorTotalInput.value;
+                const totalContrato = parseFloat(totalContratoVal) || 0;
+
+                console.log("Calculating... Total Contract:", totalContrato);
+
+                if (totalContrato <= 0) {
+                    porcentajeOutput.value = "0%";
+                    return;
+                }
+
+                let totalRecaudado = 0;
+
+                cuotaValores.forEach((input, index) => {
+                    const valorRaw = input.value;
+                    const valor = parseFloat(valorRaw) || 0;
+
+                    const estadoSelect = cuotaEstados[index];
+                    const estado = estadoSelect ? estadoSelect.value : '';
+
+                    // Log specific rows if they are 'Pagada'
+                    if (estado === 'Pagada') {
+                        console.log(`Row ${index + 1}: Paid ${valor}`);
+                        totalRecaudado += valor;
+                    }
+                });
+
+                console.log("Total Recaudado:", totalRecaudado);
+
+                const porcentaje = (totalRecaudado / totalContrato) * 100;
+
+                // Safety check for infinity/NaN
+                if (!isFinite(porcentaje)) {
+                    porcentajeOutput.value = "0%";
+                    return;
+                }
+
+                const display = Number.isInteger(porcentaje) ? porcentaje : porcentaje.toFixed(1);
+                porcentajeOutput.value = display + "%";
+            }
+
+            // Add Event Listeners
+            if (valorTotalInput) {
+                ['input', 'change', 'keyup'].forEach(evt =>
+                    valorTotalInput.addEventListener(evt, calcularPorcentaje)
+                );
+            } else {
+                console.error("Critical: #valorTotalContract input not found!");
+            }
+
+            cuotaValores.forEach(input => {
+                ['input', 'change', 'keyup'].forEach(evt =>
+                    input.addEventListener(evt, calcularPorcentaje)
+                );
+            });
+
+            cuotaEstados.forEach(select => {
+                select.addEventListener('change', calcularPorcentaje);
+            });
+
+            // Run on load to initialize view
+            setTimeout(calcularPorcentaje, 500); // Small delay to ensure browser autofill etc
+        });
+    </script>
+    {% endblock %}
+    ```

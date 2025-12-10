@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>Panel de Analista</h2>
+    <a href="{{ url_for('main.new_client') }}" class="btn btn-success">
+        <i class="bi bi-plus-circle"></i> Nuevo Cliente
+    </a>
+</div>
+
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+        <form action="{{ url_for('main.analyst_dashboard') }}" method="GET" class="row g-3">
+            <div class="col-md-10">
+                <input type="text" class="form-control" name="search"
+                    placeholder="Buscar por nombre, cédula o teléfono..." value="{{ request.args.get('search', '') }}">
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-primary w-100">Buscar</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-header bg-light">
+        <h5 class="mb-0">Clientes Recientes</h5>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Nombre</th>
+                        <th>Teléfono</th>
+                        <th>Estado</th>
+                        <th>Fecha Registro</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for client in clients %}
+                    <tr>
+                        <td>{{ client.nombre }}</td>
+                        <td>{{ client.telefono }}</td>
+                        <td>
+                            {% if client.estado == 'Nuevo' %}
+                            <span class="badge bg-info text-dark">Nuevo</span>
+                            {% elif client.estado == 'Informacion_Incompleta' %}
+                            <span class="badge bg-warning text-dark">Incompleto</span>
+                            {% elif client.estado == 'Pendiente' %}
+                            <span class="badge bg-secondary">Pendiente</span>
+                            {% elif client.estado == 'Pendiente_Analisis' %}
+                            <span class="badge bg-primary">Pendiente Análisis</span>
+                            {% elif client.estado == 'Con_Contrato' %}
+                            <span class="badge bg-success">Con Contrato</span>
+                            {% else %}
+                            <span class="badge bg-light text-dark">{{ client.estado }}</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ client.created_at.strftime('%Y-%m-%d') }}</td>
+                        <td>
+                            <a href="{{ url_for('main.client_detail', client_id=client.id) }}"
+                                class="btn btn-sm btn-outline-primary">Ver Detalles</a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="5" class="text-center text-muted">No se encontraron clientes.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

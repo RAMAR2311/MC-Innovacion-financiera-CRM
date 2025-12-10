@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card shadow-sm">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0">Registrar Nuevo Cliente</h4>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('main.new_client') }}">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="nombre" class="form-label">Nombre Completo</label>
+                            <input type="text" class="form-control" id="nombre" name="nombre" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="telefono" class="form-label">Teléfono</label>
+                            <input type="text" class="form-control" id="telefono" name="telefono" required>
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="tipo_id" class="form-label">Tipo de Identificación</label>
+                            <select class="form-select" id="tipo_id" name="tipo_id">
+                                <option value="CC">Cédula de Ciudadanía</option>
+                                <option value="CE">Cédula de Extranjería</option>
+                                <option value="NIT">NIT</option>
+                                <option value="Pasaporte">Pasaporte</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="numero_id" class="form-label">Número de Identificación</label>
+                            <input type="text" class="form-control" id="numero_id" name="numero_id">
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="email" class="form-label">Correo Electrónico</label>
+                            <input type="email" class="form-control" id="email" name="email">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="ciudad" class="form-label">Ciudad</label>
+                            <input type="text" class="form-control" id="ciudad" name="ciudad">
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="motivo_consulta" class="form-label">Motivo de Consulta</label>
+                        <textarea class="form-control" id="motivo_consulta" name="motivo_consulta" rows="3"></textarea>
+                    </div>
+
+                    <div class="d-flex justify-content-between mt-4">
+                        <a href="{{ url_for('main.analyst_dashboard') }}" class="btn btn-secondary">Cancelar</a>
+                        <div>
+                            <button type="submit" name="incomplete" value="1" class="btn btn-warning me-2">Guardar
+                                Incompleto</button>
+                            <button type="submit" class="btn btn-primary">Guardar Cliente</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
