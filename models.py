@@ -26,6 +26,10 @@ class Client(db.Model):
     abogado_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     conclusion_analisis = db.Column(db.Text) # New field for analysis conclusion
+    login_user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True) # Link to User
+
+    analista = db.relationship('User', foreign_keys=[analista_id], backref='clientes_registrados')
+    login_user = db.relationship('User', foreign_keys=[login_user_id], backref='client_profile')
 
 class FinancialObligation(db.Model):
     id = db.Column(db.Integer, primary_key=True)

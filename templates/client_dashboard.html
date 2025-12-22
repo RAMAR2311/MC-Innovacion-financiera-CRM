@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container py-4">
+    <!-- Header / Status -->
+    <div class="text-center mb-5">
+        <h1 class="display-5 fw-bold">Bienvenido, {{ client.nombre }}</h1>
+        <p class="lead text-muted">Estado actual de tu proceso:</p>
+        <span
+            class="badge rounded-pill bg-{{ 'success' if client.estado in ['Radicado', 'Finalizado', 'Con_Contrato'] else 'warning' }} fs-4 px-4 py-2">
+            {{ client.estado.replace('_', ' ') }}
+        </span>
+    </div>
+
+    <div class="row g-4">
+        <!-- Section A: Financial Obligations -->
+        <div class="col-12">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-dark text-white d-flex align-items-center">
+                    <i class="bi bi-wallet2 me-2"></i>
+                    <h5 class="mb-0">Mis Deudas (Información Financiera)</h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted small">Listado de obligaciones registradas y su gestión actual.</p>
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Entidad</th>
+                                    <th>Valor Deuda</th>
+                                    <th>Estado Deuda</th>
+                                    <th>Gestión Legal (Nosotros)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for obligation in client.financial_obligations %}
+                                <tr>
+                                    <td class="fw-bold">{{ obligation.entidad }}</td>
+                                    <td>${{ "{:,.0f}".format(obligation.valor) }}</td>
+                                    <td>
+                                        <span class="badge bg-secondary">{{ obligation.estado }}</span>
+                                    </td>
+                                    <td>
+                                        {% if obligation.estado_legal == 'Sin Iniciar' %}
+                                        <span class="text-muted">Pendiente de gestión</span>
+                                        {% elif obligation.estado_legal in ['Finalizado', 'Recuperado'] %}
+                                        <span class="badge bg-success">{{ obligation.estado_legal }}</span>
+                                        {% else %}
+                                        <span class="badge bg-info text-dark">{{ obligation.estado_legal }}</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="4" class="text-center py-4 text-muted">Aún no hay obligaciones
+                                        registradas.</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section B: Contract Status -->
+        <div class="col-12">
+            <div class="card shadow-sm border-success">
+                <div class="card-header bg-success text-white d-flex align-items-center">
+                    <i class="bi bi-file-earmark-text me-2"></i>
+                    <h5 class="mb-0">Estado de mi Contrato</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-4 text-center">
+                        <div class="col-md-4 mb-3 mb-md-0">
+                            <div class="p-3 bg-light rounded">
+                                <small class="text-uppercase text-muted fw-bold">Valor Total Contrato</small>
+                                <h3 class="text-success mt-2">${{ "{:,.0f}".format(contract.valor_total if contract else
+                                    0) }}</h3>
+                            </div>
+                        </div>
+                        <div class="col-md-4 mb-3 mb-md-0">
+                            <div class="p-3 bg-light rounded">
+                                <small class="text-uppercase text-muted fw-bold">Total Pagado</small>
+                                <h3 class="text-success mt-2">${{ "{:,.0f}".format(total_pagado) }}</h3>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="p-3 bg-light rounded">
+                                <small class="text-uppercase text-muted fw-bold">Saldo Pendiente</small>
+                                <h3 class="text-danger mt-2">${{ "{:,.0f}".format((contract.valor_total if contract else
+                                    0) - total_pagado) }}</h3>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Progress Bar -->
+                    <div class="mb-4">
+                        <label class="small text-muted fw-bold mb-1">Progreso del Contrato</label>
+                        <div class="progress" style="height: 25px;">
+                            <div class="progress-bar bg-success progress-bar-striped progress-bar-animated"
+                                role="progressbar" style="width: {{ progress_percentage }}%;"
+                                aria-valuenow="{{ progress_percentage }}" aria-valuemin="0" aria-valuemax="100">
+                                {{ "%.1f"|format(progress_percentage) }}%
+                            </div>
+                        </div>
+                    </div>
+
+                    <h6 class="border-bottom pb-2 mb-3">Cronograma de Pagos</h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-bordered">
+                            <thead>
+                                <tr class="table-secondary">
+                                    <th># Cuota</th>
+                                    <th>Fecha Vencimiento</th>
+                                    <th>Valor</th>
+                                    <th>Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% if contract and contract.installments %}
+                                {% for inst in contract.installments %}
+                                <tr class="{{ 'table-success' if inst.estado == 'Pagada' else '' }}">
+                                    <td class="text-center">{{ inst.numero_cuota }}</td>
+                                    <td>{{ inst.fecha_vencimiento if inst.fecha_vencimiento else '-' }}</td>
+                                    <td>${{ "{:,.0f}".format(inst.valor) }}</td>
+                                    <td>
+                                        {% if inst.estado == 'Pagada' %}
+                                        <span class="badge bg-success">Pagada</span>
+                                        {% elif inst.estado == 'En Mora' %}
+                                        <span class="badge bg-danger">En Mora</span>
+                                        {% else %}
+                                        <span class="badge bg-warning text-dark">Pendiente</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                                {% else %}
+                                <tr>
+                                    <td colspan="4" class="text-center">No hay cronograma de pagos definido.</td>
+                                </tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

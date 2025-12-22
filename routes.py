@@ -3,7 +3,10 @@ from flask_login import login_user, logout_user, login_required, current_user
 from models import db, User, Client, Sale, Interaction, Installment, Document, FinancialObligation, PaymentDiagnosis, PaymentContract, ContractInstallment
 from werkzeug.utils import secure_filename
 import os
+from werkzeug.utils import secure_filename
+import os
 from datetime import datetime
+from sqlalchemy import func
 
 main = Blueprint('main', __name__)
 
@@ -16,6 +19,8 @@ def index():
             return redirect(url_for('main.analyst_dashboard'))
         elif current_user.rol == 'Abogado':
             return redirect(url_for('main.lawyer_dashboard'))
+        elif current_user.rol == 'Cliente':
+            return redirect(url_for('main.client_portal'))
     return redirect(url_for('main.login'))
 
 @main.route('/login', methods=['GET', 'POST'])
@@ -26,6 +31,14 @@ def login():
         user = User.query.filter_by(email=email).first()
         if user and user.password == password: # Insecure comparison for demo
             login_user(user)
+            if user.rol == 'Cliente':
+                return redirect(url_for('main.client_portal'))
+            elif user.rol == 'Admin':
+                return redirect(url_for('main.admin_dashboard'))
+            elif user.rol == 'Analista':
+                return redirect(url_for('main.analyst_dashboard'))
+            elif user.rol == 'Abogado':
+                return redirect(url_for('main.lawyer_dashboard'))
             return redirect(url_for('main.index'))
         flash('Credenciales inválidas', 'danger')
     return render_template('login.html')
@@ -66,6 +79,52 @@ def create_user():
         db.session.commit()
         flash('Usuario creado exitosamente', 'success')
     return redirect(url_for('main.admin_dashboard'))
+
+@main.route('/client/<int:client_id>/generate_access', methods=['POST'])
+@login_required
+def generate_client_access(client_id):
+    if current_user.rol != 'Admin':
+        flash('No autorizado', 'danger')
+        return redirect(url_for('main.index'))
+    
+    client = Client.query.get_or_404(client_id)
+    email = client.email
+    if not email:
+        flash('El cliente no tiene un email registrado.', 'danger')
+        return redirect(url_for('main.client_detail', client_id=client_id))
+
+    # Auto-generate or set default password
+    password = "Cliente2024*" 
+    
+    # Check if user already exists
+    existing_user = User.query.filter_by(email=email).first()
+    if existing_user:
+        flash(f'El usuario con email {email} ya existe.', 'warning')
+        # Optional: Link if not linked? For now just warn.
+        if not client.login_user_id:
+             client.login_user_id = existing_user.id
+             db.session.commit()
+             flash('Se ha vinculado el usuario existente al cliente.', 'info')
+        return redirect(url_for('main.client_detail', client_id=client_id))
+    
+    # Create new User
+    # Note: In production use hashed passwords!
+    new_user = User(
+        nombre_completo=client.nombre,
+        email=email,
+        password=password, 
+        rol='Cliente',
+        telefono=client.telefono
+    )
+    db.session.add(new_user)
+    db.session.flush() # to get ID
+    
+    # Link to Client
+    client.login_user_id = new_user.id
+    db.session.commit()
+    
+    flash(f'Usuario creado exitosamente. La contraseña temporal es: {password}', 'success')
+    return redirect(url_for('main.client_detail', client_id=client_id))
 
 # --- Analista ---
 @main.route('/analyst')
@@ -357,48 +416,144 @@ def save_contract_details(client_id):
     except ValueError:
         contract.valor_total = 0.0
 
-    # Fixed 6 installments
-    contract.numero_cuotas = 6
+    # Updated Logic: Fixed 6 slots, filter by validity
     
-    db.session.add(contract)
-    db.session.flush() # Get ID
+    # Map existing installments
+    current_insts = {i.numero_cuota: i for i in contract.installments}
     
-    # Handle Installments - Clear and Recreate
-    for inst in contract.installments:
-        db.session.delete(inst)
-        
-    for i in range(1, 7):
+    # Valid Installments Count (for contract.numero_cuotas)
+    valid_count = 0
+
+    for i in range(1, 7): # Forever 6 loops
         valor_str = request.form.get(f'cuota_{i}_valor')
         fecha_str = request.form.get(f'cuota_{i}_fecha')
         metodo = request.form.get(f'cuota_{i}_metodo')
         estado = request.form.get(f'cuota_{i}_estado')
         
-        # Only save if we have at least a value or date or explicitly saving empty rows? 
-        # User said: "save 6 quotas (even if empty...)"
-        # So we save all 6 slots.
-        
         try:
             val = float(valor_str) if valor_str else 0.0
         except ValueError:
             val = 0.0
-
-        due_date = None
-        if fecha_str:
-            try:
-                due_date = datetime.strptime(fecha_str, '%Y-%m-%d').date()
-            except ValueError:
-                pass
-
-        installment = ContractInstallment(
-            payment_contract_id=contract.id,
-            numero_cuota=i,
-            valor=val,
-            fecha_vencimiento=due_date,
-            metodo_pago=metodo,
-            estado=estado
-        )
-        db.session.add(installment)
+            
+        # validity check: Must have a status or value > 0 to be considered "real"
+        # User said: "Solo debe crear... SI el usuario seleccionó un Estado válido... y puso un Valor."
+        is_valid = (estado in ['Pendiente', 'Pagada', 'En Mora']) and (val > 0)
         
+        inst = current_insts.get(i)
+        
+        if is_valid:
+            valid_count += 1
+            if not inst:
+                inst = ContractInstallment(payment_contract_id=contract.id, numero_cuota=i)
+                db.session.add(inst)
+            
+            # Update fields
+            inst.valor = val
+            inst.metodo_pago = metodo
+            inst.estado = estado
+            
+            if fecha_str:
+                try:
+                    inst.fecha_vencimiento = datetime.strptime(fecha_str, '%Y-%m-%d').date()
+                except ValueError:
+                    inst.fecha_vencimiento = None
+            else:
+                inst.fecha_vencimiento = None
+                
+        else:
+            # If not valid but exists in DB, delete it (clean up)
+            if inst:
+                db.session.delete(inst)
+
+    # Update total quotas count based on valid ones? Or keeping it separate? 
+    # For now, let's update it so it reflects reality.
+    contract.numero_cuotas = valid_count 
+    
     db.session.commit()
-    flash('Contrato actualizado', 'success')
+    flash('Contrato actualizado. Cuotas vacías eliminadas.', 'success')
     return redirect(url_for('main.client_detail', client_id=client_id))
+
+# --- Accounting ---
+@main.route('/accounting')
+@login_required
+def accounting_dashboard():
+    if current_user.rol not in ['Admin', 'Abogado']:
+        flash('Acceso no autorizado', 'danger')
+        return redirect(url_for('main.index'))
+    
+    # 1. KPIs
+    # Ingresos por Diagnósticos: Suma de PaymentDiagnosis.valor donde verificado sea True.
+    income_diagnosis = db.session.query(func.sum(PaymentDiagnosis.valor)).filter(PaymentDiagnosis.verificado == True).scalar() or 0
+    
+    # Ingresos por Cuotas: Suma de ContractInstallment.valor donde estado sea 'Pagada'.
+    income_installments = db.session.query(func.sum(ContractInstallment.valor)).filter(ContractInstallment.estado == 'Pagada').scalar() or 0
+    
+    total_gross_income = income_diagnosis + income_installments
+    
+    # 2. Funnel Stats
+    # Conteo de Clientes por Estado
+    clients_with_analysis = Client.query.filter_by(estado='Con_Analisis').count()
+    clients_with_contract = Client.query.filter_by(estado='Con_Contrato').count()
+    clients_radicados = Client.query.filter_by(estado='Radicado').count()
+    clients_finalized = Client.query.filter_by(estado='Finalizado').count()
+    
+    funnel_stats = {
+        'Con_Analisis': clients_with_analysis,
+        'Con_Contrato': clients_with_contract,
+        'Radicado': clients_radicados,
+        'Finalizado': clients_finalized
+    }
+    
+    # 3. Tables
+    # Tabla 1: Últimos Diagnósticos Pagados
+    recent_diagnoses = PaymentDiagnosis.query.filter_by(verificado=True).order_by(PaymentDiagnosis.fecha_pago.desc()).limit(50).all()
+    
+    # Tabla 2: Historial de Cuotas (con Filtro)
+    estado_filter = request.args.get('estado_cuota')
+    
+    query = ContractInstallment.query
+    if estado_filter and estado_filter != 'todos':
+        query = query.filter_by(estado=estado_filter)
+        
+    recent_installments = query.order_by(ContractInstallment.fecha_vencimiento.desc()).limit(50).all()
+    
+    return render_template('accounting.html', 
+                           income_diagnosis=income_diagnosis,
+                           income_installments=income_installments,
+                           total_gross_income=total_gross_income,
+                           funnel_stats=funnel_stats,
+                           recent_diagnoses=recent_diagnoses,
+                           recent_installments=recent_installments,
+                           current_filter=estado_filter)
+
+# --- Client Portal ---
+@main.route('/portal')
+@login_required
+def client_portal():
+    if current_user.rol != 'Cliente':
+        # Safety fallback
+        return redirect(url_for('main.index'))
+    
+    # Securely fetch the client associated with the current user
+    client = Client.query.filter_by(login_user_id=current_user.id).first()
+    
+    if not client:
+        flash('No se encontró un expediente asociado a este usuario.', 'danger')
+        logout_user()
+        return redirect(url_for('main.login'))
+    
+    # Calculate Data
+    contract = client.payment_contract
+    total_pagado = 0
+    if contract and contract.installments:
+        total_pagado = db.session.query(func.sum(ContractInstallment.valor)).filter(
+            ContractInstallment.payment_contract_id == contract.id,
+            ContractInstallment.estado == 'Pagada'
+        ).scalar() or 0
+        
+    contract_total = contract.valor_total if contract else 0
+    progress_percentage = 0
+    if contract_total > 0:
+        progress_percentage = (total_pagado / contract_total) * 100
+
+    return render_template('client_dashboard.html', client=client, contract=contract, total_pagado=total_pagado, progress_percentage=progress_percentage)

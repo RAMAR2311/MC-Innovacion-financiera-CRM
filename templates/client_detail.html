@@ -13,6 +13,8 @@
                 <p class="card-text"><strong>Teléfono:</strong> {{ client.telefono }}</p>
                 <p class="card-text"><strong>ID:</strong> {{ client.tipo_id }} {{ client.numero_id }}</p>
                 <p class="card-text"><strong>Ciudad:</strong> {{ client.ciudad }}</p>
+                <p class="card-text"><strong>Registrado por:</strong> {{ client.analista.nombre_completo if
+                    client.analista else 'Sistema' }}</p>
                 <p class="card-text"><strong>Estado:</strong>
                     <span class="badge bg-secondary">{{ client.estado }}</span>
                 </p>
@@ -21,6 +23,28 @@
                 <p>{{ client.motivo_consulta }}</p>
             </div>
         </div>
+
+        {% if current_user.rol == 'Admin' %}
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">Acceso al Portal</h5>
+            </div>
+            <div class="card-body">
+                {% if client.login_user_id %}
+                <p class="text-success fw-bold">Acceso Habilitado</p>
+                <p class="small mb-0">Usuario vinculado:</p>
+                <p class="fw-bold">{{ client.login_user.email }}</p>
+                {% else %}
+                <p class="small">Este cliente AÚN NO tiene acceso al portal.</p>
+                <form action="{{ url_for('main.generate_client_access', client_id=client.id) }}" method="POST">
+                    <button type="submit" class="btn btn-warning w-100">
+                        Crear Usuario de Acceso
+                    </button>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
 
         {% if current_user.rol == 'Admin' %}
         <div class="card shadow-sm mb-4">
@@ -169,6 +193,11 @@
                             <option value="Castigada">Castigada</option>
                             <option value="Reportado">Reportado</option>
                             <option value="Juridico">Jurídico</option>
+                            <option value="Dudoso recaudo">Dudoso recaudo</option>
+                            <option value="Recuperado">Recuperado</option>
+                            <option value="Penalizado">Penalizado</option>
+                            <option value="Comparendos">Comparendos</option>
+                            <option value="Negociación">Negociación</option>
                         </select>
                     </div>
                     <div class="col-md-2">
@@ -179,8 +208,18 @@
                         <label class="form-label">Estado con Nosotros</label>
                         <select class="form-select" name="estado_legal" required>
                             <option value="Sin Iniciar">Sin Iniciar</option>
-                            <option value="En Proceso">En Proceso</option>
-                            <option value="Radicado">Radicado</option>
+                            <option value="Derecho de aclaración">Derecho de aclaración</option>
+                            <option value="Refutación de pruebas">Refutación de pruebas</option>
+                            <option value="Derecho de petición">Derecho de petición</option>
+                            <option value="Fallo al derecho">Fallo al derecho</option>
+                            <option value="Refutación a ese fallo">Refutación a ese fallo</option>
+                            <option value="Solicitud de reposición">Solicitud de reposición</option>
+                            <option value="Queja superintendencia">Queja superintendencia</option>
+                            <option value="Queja defensoría">Queja defensoría</option>
+                            <option value="Tutelas fallo">Tutelas fallo</option>
+                            <option value="Tutela">Tutela</option>
+                            <option value="Demanda juzgado">Demanda juzgado</option>
+                            <option value="Demanda a la SIC">Demanda a la SIC</option>
                             <option value="Finalizado">Finalizado</option>
                         </select>
                     </div>
@@ -217,10 +256,40 @@
                                             onchange="this.form.submit()">
                                             <option value="Sin Iniciar" {% if obligation.estado_legal=='Sin Iniciar'
                                                 %}selected{% endif %}>Sin Iniciar</option>
-                                            <option value="En Proceso" {% if obligation.estado_legal=='En Proceso'
-                                                %}selected{% endif %}>En Proceso</option>
-                                            <option value="Radicado" {% if obligation.estado_legal=='Radicado'
-                                                %}selected{% endif %}>Radicado</option>
+                                            <option value="Derecho de aclaración" {% if
+                                                obligation.estado_legal=='Derecho de aclaración' %}selected{% endif %}>
+                                                Derecho de aclaración</option>
+                                            <option value="Refutación de pruebas" {% if
+                                                obligation.estado_legal=='Refutación de pruebas' %}selected{% endif %}>
+                                                Refutación de pruebas</option>
+                                            <option value="Derecho de petición" {% if
+                                                obligation.estado_legal=='Derecho de petición' %}selected{% endif %}>
+                                                Derecho de petición</option>
+                                            <option value="Fallo al derecho" {% if
+                                                obligation.estado_legal=='Fallo al derecho' %}selected{% endif %}>Fallo
+                                                al derecho</option>
+                                            <option value="Refutación a ese fallo" {% if
+                                                obligation.estado_legal=='Refutación a ese fallo' %}selected{% endif %}>
+                                                Refutación a ese fallo</option>
+                                            <option value="Solicitud de reposición" {% if
+                                                obligation.estado_legal=='Solicitud de reposición' %}selected{% endif
+                                                %}>Solicitud de reposición</option>
+                                            <option value="Queja superintendencia" {% if
+                                                obligation.estado_legal=='Queja superintendencia' %}selected{% endif %}>
+                                                Queja superintendencia</option>
+                                            <option value="Queja defensoría" {% if
+                                                obligation.estado_legal=='Queja defensoría' %}selected{% endif %}>Queja
+                                                defensoría</option>
+                                            <option value="Tutelas fallo" {% if obligation.estado_legal=='Tutelas fallo'
+                                                %}selected{% endif %}>Tutelas fallo</option>
+                                            <option value="Tutela" {% if obligation.estado_legal=='Tutela' %}selected{%
+                                                endif %}>Tutela</option>
+                                            <option value="Demanda juzgado" {% if
+                                                obligation.estado_legal=='Demanda juzgado' %}selected{% endif %}>Demanda
+                                                juzgado</option>
+                                            <option value="Demanda a la SIC" {% if
+                                                obligation.estado_legal=='Demanda a la SIC' %}selected{% endif %}>
+                                                Demanda a la SIC</option>
                                             <option value="Finalizado" {% if obligation.estado_legal=='Finalizado'
                                                 %}selected{% endif %}>Finalizado</option>
                                         </select>
@@ -319,12 +388,13 @@
                 <hr>
 
                 <!-- Contract Section -->
-                <h6 class="mb-3">Contrato y Cuotas</h6>
+                <!-- Contract Section -->
+                <h6 class="mb-3">Contrato y Cuotas (Fijo: 6 Cuotas)</h6>
                 <form action="{{ url_for('main.save_contract_details', client_id=client.id) }}" method="POST"
                     id="contractForm">
                     <fieldset {% if is_analyst %}disabled{% endif %}>
 
-                        <!-- Header with Total & Percentage -->
+                        <!-- Header with Total -->
                         <div class="row g-3 mb-3 p-3 bg-light rounded border">
                             <div class="col-md-6">
                                 <label class="form-label fw-bold">Valor Total Contrato</label>
@@ -336,18 +406,20 @@
                                         required>
                                 </div>
                             </div>
+                            <!-- Swapped "Number of Quotas" for "Percentage" as requested -->
                             <div class="col-md-6">
                                 <label class="form-label fw-bold">Porcentaje Pagado</label>
                                 <div class="input-group">
                                     <input type="text" class="form-control text-end bg-white" id="porcentajePagado"
-                                        value="0%" readonly>
+                                        value="0%" readonly style="font-weight: bold; color: green;">
                                     <span class="input-group-text">%</span>
                                 </div>
+                                <input type="hidden" name="numero_cuotas" value="6">
                             </div>
                         </div>
 
-                        <!-- Static Installment Rows -->
-                        <div id="installmentsContainer">
+                        <!-- Static 6 Installment Rows -->
+                        <div id="staticInstallmentsContainer">
                             {% set installments_map = {} %}
                             {% if client.payment_contract and client.payment_contract.installments %}
                             {% for inst in client.payment_contract.installments %}
@@ -362,7 +434,7 @@
                                     <span class="badge bg-secondary w-100">Cuota {{ i }}</span>
                                 </div>
                                 <div class="col">
-                                    <input type="number" step="0.01" class="form-control form-control-sm cuota-valor"
+                                    <input type="number" step="0.01" class="form-control form-control-sm"
                                         name="cuota_{{ i }}_valor" placeholder="Valor"
                                         value="{{ inst.valor if inst else '' }}">
                                 </div>
@@ -372,23 +444,30 @@
                                 </div>
                                 <div class="col">
                                     <select class="form-select form-select-sm" name="cuota_{{ i }}_metodo">
-                                        <option value="" disabled {% if not inst or not inst.metodo_pago %}selected{%
-                                            endif %}>Método</option>
-                                        {% for metodo in ['Nequi', 'Daviplata', 'Bancolombia', 'Link de pago',
-                                        'Efectivo'] %}
-                                        <option value="{{ metodo }}" {% if inst and inst.metodo_pago==metodo
-                                            %}selected{% endif %}>{{ metodo }}</option>
-                                        {% endfor %}
+                                        {% set metodo = inst.metodo_pago if inst else '' %}
+                                        <option value="" disabled {% if not metodo %}selected{% endif %}>Método</option>
+                                        <option value="Nequi" {% if metodo=='Nequi' %}selected{% endif %}>Nequi</option>
+                                        <option value="Daviplata" {% if metodo=='Daviplata' %}selected{% endif %}>
+                                            Daviplata</option>
+                                        <option value="Bancolombia" {% if metodo=='Bancolombia' %}selected{% endif %}>
+                                            Bancolombia</option>
+                                        <option value="Link de pago" {% if metodo=='Link de pago' %}selected{% endif %}>
+                                            Link de pago</option>
+                                        <option value="Efectivo" {% if metodo=='Efectivo' %}selected{% endif %}>Efectivo
+                                        </option>
                                     </select>
                                 </div>
                                 <div class="col">
-                                    <select class="form-select form-select-sm cuota-estado" name="cuota_{{ i }}_estado">
-                                        <option value="Pendiente" {% if not inst or inst.estado=='Pendiente'
-                                            %}selected{% endif %}>Pendiente</option>
-                                        <option value="Pagada" {% if inst and inst.estado=='Pagada' %}selected{% endif
-                                            %}>Pagada</option>
-                                        <option value="En Mora" {% if inst and inst.estado=='En Mora' %}selected{% endif
-                                            %}>En Mora</option>
+                                    <select class="form-select form-select-sm" name="cuota_{{ i }}_estado">
+                                        {% set estado = inst.estado if inst else '' %}
+                                        <option value="" {% if not estado %}selected{% endif %}>Estado (Seleccionar)
+                                        </option>
+                                        <option value="Pendiente" {% if estado=='Pendiente' %}selected{% endif %}>
+                                            Pendiente</option>
+                                        <option value="Pagada" {% if estado=='Pagada' %}selected{% endif %}>Pagada
+                                        </option>
+                                        <option value="En Mora" {% if estado=='En Mora' %}selected{% endif %}>En Mora
+                                        </option>
                                     </select>
                                 </div>
                             </div>
@@ -407,24 +486,102 @@
     </div>
     {% endblock %}
 
+    {% block content_end %}
+    {% endblock %}
+
     {% block scripts %}
     <script>
-        document.addEventListener('DOMContentLoaded', function () {
-            console.log("Initializing Payments Calculation Script...");
+        // Pass existing data to JS
+        const existingInstallments = [
+            {% if client.payment_contract and client.payment_contract.installments %}
+        {% for inst in client.payment_contract.installments %}
+        {
+            "numero_cuota": { { inst.numero_cuota } },
+            "valor": { { inst.valor |default (0) } },
+            "fecha_vencimiento": "{{ inst.fecha_vencimiento if inst.fecha_vencimiento else '' }}",
+                "metodo_pago": "{{ inst.metodo_pago if inst.metodo_pago else '' }}",
+                    "estado": "{{ inst.estado if inst.estado else 'Pendiente' }}"
+        },
+        {% endfor %}
+        {% endif %}
+        ];
 
+        document.addEventListener('DOMContentLoaded', function () {
+            const container = document.getElementById('installmentsContainer');
+            const selectCuotas = document.getElementById('numeroCuotasSelect');
             const valorTotalInput = document.getElementById('valorTotalContract');
             const porcentajeOutput = document.getElementById('porcentajePagado');
 
-            // Use more specific selectors if needed, but classes should work
-            const cuotaValores = document.querySelectorAll('.cuota-valor');
-            const cuotaEstados = document.querySelectorAll('.cuota-estado');
+            // Render Rows Function
+            function renderRows(num) {
+                container.innerHTML = ''; // Clear existing
+
+                for (let i = 1; i <= num; i++) {
+                    // Try to find existing data for this index
+                    const data = existingInstallments.find(item => item.numero_cuota === i) || {};
+
+                    const valor = data.valor !== undefined ? data.valor : '';
+                    const fecha = data.fecha_vencimiento || '';
+                    const metodo = data.metodo_pago || '';
+                    const estado = data.estado || 'Pendiente';
+
+                    const rowHtml = `
+                    <div class="row g-2 mb-2 align-items-center p-2 border-bottom installment-row">
+                        <div class="col-auto" style="width: 80px;">
+                            <span class="badge bg-secondary w-100">Cuota ${i}</span>
+                        </div>
+                        <div class="col">
+                            <input type="number" step="0.01" class="form-control form-control-sm cuota-valor"
+                                name="cuota_${i}_valor" placeholder="Valor" value="${valor}" required>
+                        </div>
+                        <div class="col">
+                            <input type="date" class="form-control form-control-sm" name="cuota_${i}_fecha"
+                                value="${fecha}" required>
+                        </div>
+                        <div class="col">
+                            <select class="form-select form-select-sm" name="cuota_${i}_metodo">
+                                <option value="" disabled ${!metodo ? 'selected' : ''}>Método</option>
+                                <option value="Nequi" ${metodo === 'Nequi' ? 'selected' : ''}>Nequi</option>
+                                <option value="Daviplata" ${metodo === 'Daviplata' ? 'selected' : ''}>Daviplata</option>
+                                <option value="Bancolombia" ${metodo === 'Bancolombia' ? 'selected' : ''}>Bancolombia</option>
+                                <option value="Link de pago" ${metodo === 'Link de pago' ? 'selected' : ''}>Link de pago</option>
+                                <option value="Efectivo" ${metodo === 'Efectivo' ? 'selected' : ''}>Efectivo</option>
+                            </select>
+                        </div>
+                        <div class="col">
+                            <select class="form-select form-select-sm cuota-estado" name="cuota_${i}_estado">
+                                <option value="Pendiente" ${estado === 'Pendiente' ? 'selected' : ''}>Pendiente</option>
+                                <option value="Pagada" ${estado === 'Pagada' ? 'selected' : ''}>Pagada</option>
+                                <option value="En Mora" ${estado === 'En Mora' ? 'selected' : ''}>En Mora</option>
+                            </select>
+                        </div>
+                    </div>
+                    `;
+                    container.insertAdjacentHTML('beforeend', rowHtml);
+                }
+
+                // Re-bind calculation events to new inputs
+                bindCalculationEvents();
+                // Recalculate immediately
+                calcularPorcentaje();
+            }
+
+            // Calculation Logic
+            function bindCalculationEvents() {
+                const cuotaValores = document.querySelectorAll('.cuota-valor');
+                const cuotaEstados = document.querySelectorAll('.cuota-estado');
+
+                cuotaValores.forEach(input => {
+                    input.addEventListener('input', calcularPorcentaje);
+                    input.addEventListener('keyup', calcularPorcentaje);
+                });
+                cuotaEstados.forEach(select => {
+                    select.addEventListener('change', calcularPorcentaje);
+                });
+            }
 
             function calcularPorcentaje() {
-                // Debug values
-                const totalContratoVal = valorTotalInput.value;
-                const totalContrato = parseFloat(totalContratoVal) || 0;
-
-                console.log("Calculating... Total Contract:", totalContrato);
+                const totalContrato = parseFloat(valorTotalInput.value) || 0;
 
                 if (totalContrato <= 0) {
                     porcentajeOutput.value = "0%";
@@ -432,56 +589,31 @@
                 }
 
                 let totalRecaudado = 0;
+                const rows = document.querySelectorAll('.installment-row');
 
-                cuotaValores.forEach((input, index) => {
-                    const valorRaw = input.value;
-                    const valor = parseFloat(valorRaw) || 0;
+                rows.forEach(row => {
+                    const valInput = row.querySelector('.cuota-valor');
+                    const stateSelect = row.querySelector('.cuota-estado');
 
-                    const estadoSelect = cuotaEstados[index];
-                    const estado = estadoSelect ? estadoSelect.value : '';
-
-                    // Log specific rows if they are 'Pagada'
-                    if (estado === 'Pagada') {
-                        console.log(`Row ${index + 1}: Paid ${valor}`);
-                        totalRecaudado += valor;
+                    if (valInput && stateSelect && stateSelect.value === 'Pagada') {
+                        totalRecaudado += parseFloat(valInput.value) || 0;
                     }
                 });
 
-                console.log("Total Recaudado:", totalRecaudado);
-
                 const porcentaje = (totalRecaudado / totalContrato) * 100;
-
-                // Safety check for infinity/NaN
-                if (!isFinite(porcentaje)) {
-                    porcentajeOutput.value = "0%";
-                    return;
-                }
-
                 const display = Number.isInteger(porcentaje) ? porcentaje : porcentaje.toFixed(1);
                 porcentajeOutput.value = display + "%";
             }
 
-            // Add Event Listeners
-            if (valorTotalInput) {
-                ['input', 'change', 'keyup'].forEach(evt =>
-                    valorTotalInput.addEventListener(evt, calcularPorcentaje)
-                );
-            } else {
-                console.error("Critical: #valorTotalContract input not found!");
-            }
-
-            cuotaValores.forEach(input => {
-                ['input', 'change', 'keyup'].forEach(evt =>
-                    input.addEventListener(evt, calcularPorcentaje)
-                );
+            // Global Event Listeners
+            selectCuotas.addEventListener('change', function () {
+                renderRows(parseInt(this.value));
             });
 
-            cuotaEstados.forEach(select => {
-                select.addEventListener('change', calcularPorcentaje);
-            });
+            valorTotalInput.addEventListener('input', calcularPorcentaje);
 
-            // Run on load to initialize view
-            setTimeout(calcularPorcentaje, 500); // Small delay to ensure browser autofill etc
+            // Initial Render
+            renderRows(parseInt(selectCuotas.value));
         });
     </script>
     {% endblock %}
