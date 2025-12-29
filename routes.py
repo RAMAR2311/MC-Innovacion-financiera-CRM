@@ -217,9 +217,27 @@ def send_to_lawyer(client_id):
 def lawyer_dashboard():
     if current_user.rol not in ['Abogado', 'Admin']:
         return redirect(url_for('main.index'))
-    clients = Client.query.filter(
+    
+    query = Client.query.filter(
         Client.estado.in_(['Pendiente_Analisis', 'Con_Analisis', 'Con_Contrato', 'Radicado', 'Finalizado'])
-    ).all()
+    )
+
+    # Filtering logic
+    nombre = request.args.get('nombre')
+    analista = request.args.get('analista')
+    fecha = request.args.get('fecha')
+
+    if nombre:
+        query = query.filter((Client.nombre.ilike(f'%{nombre}%')) | (Client.numero_id.ilike(f'%{nombre}%')))
+    
+    if analista:
+        query = query.join(Client.analista).filter(User.nombre_completo.ilike(f'%{analista}%'))
+    
+    if fecha:
+        # Cast created_at to date for comparison
+        query = query.filter(func.date(Client.created_at) == fecha)
+
+    clients = query.all()
     return render_template('lawyer/dashboard.html', clients=clients)
 
 # --- Shared / Client Details ---

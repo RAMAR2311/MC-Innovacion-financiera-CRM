@@ -491,129 +491,58 @@
 
     {% block scripts %}
     <script>
-        // Pass existing data to JS
-        const existingInstallments = [
-            {% if client.payment_contract and client.payment_contract.installments %}
-        {% for inst in client.payment_contract.installments %}
-        {
-            "numero_cuota": { { inst.numero_cuota } },
-            "valor": { { inst.valor |default (0) } },
-            "fecha_vencimiento": "{{ inst.fecha_vencimiento if inst.fecha_vencimiento else '' }}",
-                "metodo_pago": "{{ inst.metodo_pago if inst.metodo_pago else '' }}",
-                    "estado": "{{ inst.estado if inst.estado else 'Pendiente' }}"
-        },
-        {% endfor %}
-        {% endif %}
-        ];
-
         document.addEventListener('DOMContentLoaded', function () {
-            const container = document.getElementById('installmentsContainer');
-            const selectCuotas = document.getElementById('numeroCuotasSelect');
             const valorTotalInput = document.getElementById('valorTotalContract');
             const porcentajeOutput = document.getElementById('porcentajePagado');
-
-            // Render Rows Function
-            function renderRows(num) {
-                container.innerHTML = ''; // Clear existing
-
-                for (let i = 1; i <= num; i++) {
-                    // Try to find existing data for this index
-                    const data = existingInstallments.find(item => item.numero_cuota === i) || {};
-
-                    const valor = data.valor !== undefined ? data.valor : '';
-                    const fecha = data.fecha_vencimiento || '';
-                    const metodo = data.metodo_pago || '';
-                    const estado = data.estado || 'Pendiente';
-
-                    const rowHtml = `
-                    <div class="row g-2 mb-2 align-items-center p-2 border-bottom installment-row">
-                        <div class="col-auto" style="width: 80px;">
-                            <span class="badge bg-secondary w-100">Cuota ${i}</span>
-                        </div>
-                        <div class="col">
-                            <input type="number" step="0.01" class="form-control form-control-sm cuota-valor"
-                                name="cuota_${i}_valor" placeholder="Valor" value="${valor}" required>
-                        </div>
-                        <div class="col">
-                            <input type="date" class="form-control form-control-sm" name="cuota_${i}_fecha"
-                                value="${fecha}" required>
-                        </div>
-                        <div class="col">
-                            <select class="form-select form-select-sm" name="cuota_${i}_metodo">
-                                <option value="" disabled ${!metodo ? 'selected' : ''}>Método</option>
-                                <option value="Nequi" ${metodo === 'Nequi' ? 'selected' : ''}>Nequi</option>
-                                <option value="Daviplata" ${metodo === 'Daviplata' ? 'selected' : ''}>Daviplata</option>
-                                <option value="Bancolombia" ${metodo === 'Bancolombia' ? 'selected' : ''}>Bancolombia</option>
-                                <option value="Link de pago" ${metodo === 'Link de pago' ? 'selected' : ''}>Link de pago</option>
-                                <option value="Efectivo" ${metodo === 'Efectivo' ? 'selected' : ''}>Efectivo</option>
-                            </select>
-                        </div>
-                        <div class="col">
-                            <select class="form-select form-select-sm cuota-estado" name="cuota_${i}_estado">
-                                <option value="Pendiente" ${estado === 'Pendiente' ? 'selected' : ''}>Pendiente</option>
-                                <option value="Pagada" ${estado === 'Pagada' ? 'selected' : ''}>Pagada</option>
-                                <option value="En Mora" ${estado === 'En Mora' ? 'selected' : ''}>En Mora</option>
-                            </select>
-                        </div>
-                    </div>
-                    `;
-                    container.insertAdjacentHTML('beforeend', rowHtml);
-                }
-
-                // Re-bind calculation events to new inputs
-                bindCalculationEvents();
-                // Recalculate immediately
-                calcularPorcentaje();
-            }
-
-            // Calculation Logic
-            function bindCalculationEvents() {
-                const cuotaValores = document.querySelectorAll('.cuota-valor');
-                const cuotaEstados = document.querySelectorAll('.cuota-estado');
-
-                cuotaValores.forEach(input => {
-                    input.addEventListener('input', calcularPorcentaje);
-                    input.addEventListener('keyup', calcularPorcentaje);
-                });
-                cuotaEstados.forEach(select => {
-                    select.addEventListener('change', calcularPorcentaje);
-                });
-            }
+            // Container for the static 6 rows
+            const container = document.getElementById('staticInstallmentsContainer');
 
             function calcularPorcentaje() {
-                const totalContrato = parseFloat(valorTotalInput.value) || 0;
+                const totalContrato = parseFloat(valorTotalInput ? valorTotalInput.value : 0) || 0;
 
                 if (totalContrato <= 0) {
-                    porcentajeOutput.value = "0%";
+                    if (porcentajeOutput) porcentajeOutput.value = "0%";
                     return;
                 }
 
                 let totalRecaudado = 0;
-                const rows = document.querySelectorAll('.installment-row');
 
-                rows.forEach(row => {
-                    const valInput = row.querySelector('.cuota-valor');
-                    const stateSelect = row.querySelector('.cuota-estado');
+                // Iterate through the 6 static rows to sum paid amounts
+                for (let i = 1; i <= 6; i++) {
+                    // Selectors based on the static HTML naming convention: cuota_{i}_valor and cuota_{i}_estado
+                    const valInput = container ? container.querySelector(`input[name="cuota_${i}_valor"]`) : null;
+                    const stateSelect = container ? container.querySelector(`select[name="cuota_${i}_estado"]`) : null;
 
                     if (valInput && stateSelect && stateSelect.value === 'Pagada') {
                         totalRecaudado += parseFloat(valInput.value) || 0;
                     }
-                });
+                }
 
                 const porcentaje = (totalRecaudado / totalContrato) * 100;
                 const display = Number.isInteger(porcentaje) ? porcentaje : porcentaje.toFixed(1);
-                porcentajeOutput.value = display + "%";
+                if (porcentajeOutput) porcentajeOutput.value = display + "%";
             }
 
-            // Global Event Listeners
-            selectCuotas.addEventListener('change', function () {
-                renderRows(parseInt(this.value));
-            });
+            function bindCalculationEvents() {
+                if (!container) return;
 
-            valorTotalInput.addEventListener('input', calcularPorcentaje);
+                // Select all relevant inputs within the container
+                const inputs = container.querySelectorAll('input[name$="_valor"], select[name$="_estado"]');
 
-            // Initial Render
-            renderRows(parseInt(selectCuotas.value));
+                inputs.forEach(el => {
+                    // Bind both input and change for robustness
+                    el.addEventListener('input', calcularPorcentaje);
+                    el.addEventListener('change', calcularPorcentaje);
+                });
+            }
+
+            if (valorTotalInput) {
+                valorTotalInput.addEventListener('input', calcularPorcentaje);
+            }
+
+            // Initial Bind and Calculate
+            bindCalculationEvents();
+            calcularPorcentaje();
         });
     </script>
     {% endblock %}

@@ -5,6 +5,37 @@
     <h2>Mis Casos</h2>
 </div>
 
+<div class="card shadow-sm mb-4">
+    <div class="card-header bg-light">
+        <h5 class="mb-0">Filtros de Búsqueda</h5>
+    </div>
+    <div class="card-body">
+        <form method="GET" action="{{ url_for('main.lawyer_dashboard') }}" class="row g-3">
+            <div class="col-md-4">
+                <label for="nombre" class="form-label">Nombre o Cédula</label>
+                <input type="text" class="form-control" id="nombre" name="nombre" placeholder="Nombre o cédula..."
+                    value="{{ request.args.get('nombre', '') }}">
+            </div>
+            <div class="col-md-3">
+                <label for="analista" class="form-label">Analista Asignado</label>
+                <input type="text" class="form-control" id="analista" name="analista"
+                    placeholder="Nombre del analista..." value="{{ request.args.get('analista', '') }}">
+            </div>
+            <div class="col-md-3">
+                <label for="fecha" class="form-label">Fecha de Registro</label>
+                <input type="date" class="form-control" id="fecha" name="fecha"
+                    value="{{ request.args.get('fecha', '') }}">
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+                <div class="d-grid gap-2 w-100">
+                    <button type="submit" class="btn btn-primary">Buscar</button>
+                    <a href="{{ url_for('main.lawyer_dashboard') }}" class="btn btn-outline-secondary">Limpiar</a>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
 <div class="card shadow-sm">
     <div class="card-header bg-light">
         <h5 class="mb-0">Listado de Clientes</h5>
