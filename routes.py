@@ -1,8 +1,6 @@
-from flask import Blueprint, render_template, redirect, url_for, flash, request, send_from_directory, current_app
+from flask import Blueprint, render_template, redirect, url_for, flash, request, send_from_directory, current_app, jsonify
 from flask_login import login_user, logout_user, login_required, current_user
-from models import db, User, Client, Sale, Interaction, Installment, Document, FinancialObligation, PaymentDiagnosis, PaymentContract, ContractInstallment
-from werkzeug.utils import secure_filename
-import os
+from models import db, User, Client, Sale, Interaction, Installment, Document, FinancialObligation, PaymentDiagnosis, PaymentContract, ContractInstallment, ChatMessage
 from werkzeug.utils import secure_filename
 import os
 from datetime import datetime
@@ -48,6 +46,42 @@ def login():
 def logout():
     logout_user()
     return redirect(url_for('main.login'))
+
+@main.route('/change_password', methods=['GET', 'POST'])
+@login_required
+def change_password():
+    if request.method == 'POST':
+        current_password = request.form.get('current_password')
+        new_password = request.form.get('new_password')
+        confirm_password = request.form.get('confirm_password')
+
+        if not current_password or not new_password or not confirm_password:
+            flash('Todos los campos son obligatorios.', 'warning')
+        elif current_user.password != current_password:
+            flash('La contraseña actual es incorrecta.', 'danger')
+        elif new_password != confirm_password:
+            flash('Las nuevas contraseñas no coinciden.', 'warning')
+        else:
+            current_user.password = new_password
+            db.session.commit()
+            flash('Contraseña actualizada exitosamente.', 'success')
+            
+            # Redirect based on role
+            if current_user.rol == 'Cliente':
+                return redirect(url_for('main.client_portal'))
+            elif current_user.rol == 'Admin':
+                return redirect(url_for('main.admin_dashboard'))
+            elif current_user.rol == 'Analista':
+                return redirect(url_for('main.analyst_dashboard'))
+            elif current_user.rol == 'Abogado':
+                return redirect(url_for('main.lawyer_dashboard'))
+            return redirect(url_for('main.index'))
+
+        # On error, redirect back to the previous page if possible, or default to index
+        return redirect(request.referrer or url_for('main.index'))
+    
+    # If GET, just redirect to index as this is intended to be used via modal
+    return redirect(url_for('main.index'))
 
 # --- Admin ---
 @main.route('/admin')
@@ -133,16 +167,22 @@ def analyst_dashboard():
     if current_user.rol not in ['Analista', 'Admin']:
         return redirect(url_for('main.index'))
     
-    search_query = request.args.get('search')
-    if search_query:
-        clients = Client.query.filter(
-            (Client.nombre.contains(search_query)) | 
-            (Client.numero_id.contains(search_query)) |
-            (Client.telefono.contains(search_query))
-        ).all()
-    else:
-        # Show recent clients or assigned clients
-        clients = Client.query.order_by(Client.created_at.desc()).limit(20).all()
+    nombre = request.args.get('nombre')
+    analista = request.args.get('analista')
+    fecha = request.args.get('fecha')
+
+    query = Client.query
+
+    if nombre:
+        query = query.filter(Client.nombre.ilike(f'%{nombre}%'))
+    
+    if analista:
+        query = query.join(Client.analista).filter(User.nombre_completo.ilike(f'%{analista}%'))
+    
+    if fecha:
+        query = query.filter(func.date(Client.created_at) == fecha)
+    
+    clients = query.order_by(Client.created_at.desc()).all()
         
     return render_template('analyst/dashboard.html', clients=clients)
 
@@ -212,6 +252,38 @@ def send_to_lawyer(client_id):
     return redirect(url_for('main.analyst_dashboard'))
 
 # --- Abogado ---
+@main.route('/client/<int:client_id>/send_message', methods=['POST'])
+@login_required
+def send_message(client_id):
+    data = request.get_json()
+    message_text = data.get('message')
+    
+    if not message_text:
+        return jsonify({'success': False, 'message': 'Mensaje vacío'}), 400
+        
+    client = Client.query.get_or_404(client_id)
+    
+    # Validation: Only involved users can chat
+    if current_user.rol == 'Cliente' and client.login_user_id != current_user.id:
+        return jsonify({'success': False, 'message': 'No autorizado'}), 403
+    elif current_user.rol not in ['Abogado', 'Admin', 'Cliente']: # Analysts excluded for now? Prompt implied Lawyer and Client.
+        return jsonify({'success': False, 'message': 'No autorizado'}), 403
+        
+    msg = ChatMessage(
+        client_id=client_id,
+        sender_id=current_user.id,
+        message=message_text,
+        is_read=False
+    )
+    db.session.add(msg)
+    db.session.commit()
+    
+    return jsonify({
+        'success': True, 
+        'message_html': f'<div class="mb-2 text-end"><span class="d-inline-block p-2 rounded bg-primary text-white" style="max-width: 80%;">{msg.message}</span><small class="d-block text-muted" style="font-size: 0.7rem;">Ahora</small></div>'
+    })
+
+# --- Abogado ---
 @main.route('/lawyer')
 @login_required
 def lawyer_dashboard():
@@ -238,7 +310,18 @@ def lawyer_dashboard():
         query = query.filter(func.date(Client.created_at) == fecha)
 
     clients = query.all()
-    return render_template('lawyer/dashboard.html', clients=clients)
+    
+    # Calculate unread messages for each client
+    # Dict {client_id: count}
+    unread_counts = {}
+    for client in clients:
+        # Count messages sent by CLIENT (rol='Cliente') that are not read
+        # Using a join or property check
+        count = ChatMessage.query.join(User, ChatMessage.sender_id == User.id)\
+            .filter(ChatMessage.client_id == client.id, User.rol == 'Cliente', ChatMessage.is_read == False).count()
+        unread_counts[client.id] = count
+
+    return render_template('lawyer/dashboard.html', clients=clients, unread_counts=unread_counts)
 
 # --- Shared / Client Details ---
 @main.route('/client/<int:client_id>')
@@ -264,6 +347,20 @@ def client_detail(client_id):
     # Filter for Analyst
     if current_user.rol == 'Analista':
         documents = [d for d in documents if d.visible_para_analista]
+
+    # --- Chat Logic: Mark as Read ---
+    if current_user.rol in ['Abogado', 'Admin']:
+        # Mark messages from Client as read
+        unread_msgs = ChatMessage.query.join(User).filter(
+            ChatMessage.client_id == client.id, 
+            User.rol == 'Cliente',
+            ChatMessage.is_read == False
+        ).all()
+        
+        if unread_msgs:
+            for msg in unread_msgs:
+                msg.is_read = True
+            db.session.commit()
             
     return render_template('client_detail.html', client=client, files=files, documents=documents)
 
@@ -284,17 +381,21 @@ def upload_file(client_id):
         file.save(os.path.join(current_app.config['UPLOAD_FOLDER'], filename))
         
         # Create Document record
-        visible = False
+        visible_analyst = False
+        visible_client = False
+        
         if current_user.rol == 'Abogado':
-             visible = 'visible_para_analista' in request.form
+             visible_analyst = 'visible_para_analista' in request.form
+             visible_client = 'visible_para_cliente' in request.form
         elif current_user.rol == 'Analista':
-             visible = True # Analysts always see what they upload
+             visible_analyst = True # Analysts always see what they upload
              
         new_doc = Document(
             filename=filename,
             client_id=client_id,
             uploaded_by_id=current_user.id,
-            visible_para_analista=visible
+            visible_para_analista=visible_analyst,
+            visible_para_cliente=visible_client
         )
         db.session.add(new_doc)
         db.session.commit()
@@ -322,20 +423,29 @@ def update_status(client_id):
         flash('Estado actualizado', 'success')
     return redirect(url_for('main.client_detail', client_id=client_id))
 
-@main.route('/document/<int:doc_id>/toggle_visibility', methods=['POST'])
+@main.route('/document/<int:doc_id>/toggle_analyst_visibility', methods=['POST'])
 @login_required
-def toggle_visibility(doc_id):
-    if current_user.rol != 'Abogado':
-        flash('No autorizado', 'danger')
-        return redirect(url_for('main.index'))
+def toggle_analyst_visibility(doc_id):
+    if current_user.rol not in ['Abogado', 'Admin']:
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 403
         
     doc = Document.query.get_or_404(doc_id)
     doc.visible_para_analista = not doc.visible_para_analista
     db.session.commit()
     
-    status_msg = "visible" if doc.visible_para_analista else "privado"
-    flash(f'Documento ahora es {status_msg} para analistas', 'success')
-    return redirect(url_for('main.client_detail', client_id=doc.client_id))
+    return jsonify({'success': True, 'visible': doc.visible_para_analista})
+
+@main.route('/document/<int:doc_id>/toggle_client_visibility', methods=['POST'])
+@login_required
+def toggle_client_visibility(doc_id):
+    if current_user.rol not in ['Abogado', 'Admin']:
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 403
+        
+    doc = Document.query.get_or_404(doc_id)
+    doc.visible_para_cliente = not doc.visible_para_cliente
+    db.session.commit()
+    
+    return jsonify({'success': True, 'visible': doc.visible_para_cliente})
 
 @main.route('/client/<int:client_id>/add_financial_obligation', methods=['POST'])
 @login_required
@@ -368,7 +478,7 @@ def add_financial_obligation(client_id):
 @main.route('/client/<int:client_id>/update_analysis', methods=['POST'])
 @login_required
 def update_analysis(client_id):
-    if current_user.rol != 'Analista':
+    if current_user.rol not in ['Analista', 'Abogado']:
         flash('No autorizado', 'danger')
         return redirect(url_for('main.index'))
         
@@ -429,6 +539,11 @@ def save_contract_details(client_id):
     client = Client.query.get_or_404(client_id)
     contract = client.payment_contract or PaymentContract(client_id=client.id)
     
+    # Ensure contract has ID if it's new
+    if not contract.id:
+        db.session.add(contract)
+        db.session.flush()
+
     try:
         contract.valor_total = float(request.form.get('valor_total') or 0)
     except ValueError:
@@ -437,6 +552,7 @@ def save_contract_details(client_id):
     # Updated Logic: Fixed 6 slots, filter by validity
     
     # Map existing installments
+    # Refresh installments from DB if needed or access relationship
     current_insts = {i.numero_cuota: i for i in contract.installments}
     
     # Valid Installments Count (for contract.numero_cuotas)
@@ -462,7 +578,8 @@ def save_contract_details(client_id):
         if is_valid:
             valid_count += 1
             if not inst:
-                inst = ContractInstallment(payment_contract_id=contract.id, numero_cuota=i)
+                # FIX: Use relationship object instead of ID to avoid integrity error if ID not set
+                inst = ContractInstallment(payment_contract=contract, numero_cuota=i)
                 db.session.add(inst)
             
             # Update fields
@@ -574,4 +691,7 @@ def client_portal():
     if contract_total > 0:
         progress_percentage = (total_pagado / contract_total) * 100
 
-    return render_template('client_dashboard.html', client=client, contract=contract, total_pagado=total_pagado, progress_percentage=progress_percentage)
+    # Fetch documents visible for client
+    documents = Document.query.filter_by(client_id=client.id, visible_para_cliente=True).all()
+
+    return render_template('client_dashboard.html', client=client, contract=contract, total_pagado=total_pagado, progress_percentage=progress_percentage, documents=documents)

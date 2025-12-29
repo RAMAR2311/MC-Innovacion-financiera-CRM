@@ -96,6 +96,106 @@
         </div>
         {% endif %}
 
+        {% if current_user.rol in ['Abogado', 'Admin'] %}
+        <!-- Chat Section -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Chat con Cliente</h5>
+            </div>
+            <div class="card-body p-0">
+                <div id="chat-history" class="p-3" style="height: 400px; overflow-y: auto; background-color: #f8f9fa;">
+                    {% if client.messages %}
+                    {% for msg in client.messages|sort(attribute='timestamp') %}
+                    <div class="mb-2 {{ 'text-end' if msg.sender.rol != 'Cliente' else 'text-start' }}">
+                        <div class="d-inline-block p-2 rounded {{ 'bg-success text-white' if msg.sender.rol != 'Cliente' else 'bg-white border text-dark' }}"
+                            style="max-width: 85%; text-align: left;">
+                            {{ msg.message }}
+                        </div>
+                        <small class="d-block text-muted mt-1" style="font-size: 0.75rem;">
+                            {{ msg.timestamp.strftime('%d/%m %H:%M') }} - {{ msg.sender.nombre_completo.split()[0] }}
+                        </small>
+                    </div>
+                    {% endfor %}
+                    {% else %}
+                    <p class="text-center text-muted small mt-5" id="no-messages">
+                        <i class="bi bi-chat-square-text fs-1 d-block mb-2"></i>
+                        No hay mensajes aún.
+                    </p>
+                    {% endif %}
+                </div>
+                <div class="p-3 border-top bg-light">
+                    <div class="input-group">
+                        <input type="text" id="chat-input" class="form-control"
+                            placeholder="Escribe un mensaje al cliente...">
+                        <button class="btn btn-success" type="button" id="send-btn">
+                            <i class="bi bi-send-fill"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            document.addEventListener('DOMContentLoaded', function () {
+                const chatHistory = document.getElementById('chat-history');
+                const chatInput = document.getElementById('chat-input');
+                const sendBtn = document.getElementById('send-btn');
+                const clientId = {{ client.id }};
+
+            // Auto-scroll to bottom
+            function scrollToBottom() {
+                if (chatHistory) chatHistory.scrollTop = chatHistory.scrollHeight;
+            }
+            scrollToBottom();
+
+            function sendMessage() {
+                const message = chatInput.value.trim();
+                if (!message) return;
+
+                fetch(`/client/${clientId}/send_message`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ message: message })
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            const noMsg = document.getElementById('no-messages');
+                            if (noMsg) noMsg.remove();
+
+                            const now = new Date();
+                            const timeString = `${now.getDate()}/${now.getMonth() + 1} ${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+                            const div = document.createElement('div');
+                            div.className = "mb-2 text-end";
+                            div.innerHTML = `
+                                <div class="d-inline-block p-2 rounded bg-success text-white" style="max-width: 85%; text-align: left;">
+                                    ${message}
+                                </div>
+                                <small class="d-block text-muted mt-1" style="font-size: 0.75rem;">
+                                    ${timeString} - Yo
+                                </small>
+                            `;
+
+                            chatHistory.appendChild(div);
+                            chatInput.value = '';
+                            scrollToBottom();
+                        } else {
+                            alert(data.message);
+                        }
+                    })
+                    .catch(error => console.error('Error:', error));
+            }
+
+            if (sendBtn) sendBtn.addEventListener('click', sendMessage);
+            if (chatInput) chatInput.addEventListener('keypress', function (e) {
+                if (e.key === 'Enter') sendMessage();
+            });
+            });
+        </script>
+
         {% if current_user.rol == 'Analista' and client.estado in ['Nuevo', 'Informacion_Incompleta'] %}
         <div class="card shadow-sm mb-4">
             <div class="card-header bg-warning text-dark">
@@ -118,55 +218,136 @@
             </div>
             <div class="card-body">
                 <form action="{{ url_for('main.upload_file', client_id=client.id) }}" method="POST"
-                    enctype="multipart/form-data" class="row g-3 align-items-center mb-4">
-                    <div class="col-auto">
-                        <input type="file" class="form-control" name="file" required>
-                    </div>
-                    {% if current_user.rol == 'Abogado' %}
-                    <div class="col-auto">
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" name="visible_para_analista"
-                                id="visibleCheck">
-                            <label class="form-check-label" for="visibleCheck">
-                                Visible para Analistas
-                            </label>
+                    enctype="multipart/form-data" class="mb-4 p-3 bg-light border rounded">
+                    <div class="row g-2 align-items-center">
+                        <div class="col-md-5">
+                            <label class="form-label small fw-bold">Archivo</label>
+                            <input type="file" class="form-control form-control-sm" name="file" required>
                         </div>
-                    </div>
-                    {% endif %}
-                    <div class="col-auto">
-                        <button type="submit" class="btn btn-success">Subir Archivo</button>
+                        {% if current_user.rol == 'Abogado' %}
+                        <div class="col-md-5">
+                            <label class="form-label small fw-bold d-block">Visibilidad</label>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="checkbox" name="visible_para_analista"
+                                    id="checkAnalista">
+                                <label class="form-check-label small" for="checkAnalista">Analista</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="checkbox" name="visible_para_cliente"
+                                    id="checkCliente">
+                                <label class="form-check-label small" for="checkCliente">Cliente</label>
+                            </div>
+                        </div>
+                        {% endif %}
+                        <div class="col-md-2 text-end">
+                            <label class="form-label d-block">&nbsp;</label>
+                            <button type="submit" class="btn btn-sm btn-primary w-100">Subir</button>
+                        </div>
                     </div>
                 </form>
 
                 <h6>Documentos:</h6>
-                <ul class="list-group">
-                    {% for doc in documents %}
-                    <li class="list-group-item d-flex justify-content-between align-items-center">
-                        <div>
-                            {{ doc.filename }}
-                            {% if current_user.rol == 'Abogado' %}
-                            <form action="{{ url_for('main.toggle_visibility', doc_id=doc.id) }}" method="POST"
-                                class="d-inline">
-                                <button type="submit"
-                                    class="btn btn-sm {% if doc.visible_para_analista %}btn-success{% else %}btn-secondary{% endif %} ms-2"
-                                    title="Cambiar visibilidad">
-                                    {% if doc.visible_para_analista %}
-                                    Visible
+                <div class="table-responsive">
+                    <table class="table table-bordered table-sm align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Nombre del Archivo</th>
+                                <th>Subido Por</th>
+                                <th class="text-center" style="width: 100px;">Analista</th>
+                                <th class="text-center" style="width: 100px;">Cliente</th>
+                                <th class="text-center" style="width: 80px;">Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for doc in documents %}
+                            <tr>
+                                <td class="text-truncate" style="max-width: 200px;" title="{{ doc.filename }}">
+                                    {{ doc.filename.split('_', 2)[-1] }}
+                                </td>
+                                <td><small>{{ doc.uploaded_by.nombre_completo }}</small></td>
+                                <td class="text-center">
+                                    {% if current_user.rol == 'Abogado' %}
+                                    <button
+                                        class="btn btn-sm btn-outline-{{ 'success' if doc.visible_para_analista else 'secondary' }} border-0"
+                                        onclick="toggleVisibility({{ doc.id }}, this, 'analyst')"
+                                        title="{{ 'Visible' if doc.visible_para_analista else 'Oculto' }}">
+                                        <i class="bi bi-eye{{ '' if doc.visible_para_analista else '-slash' }}"></i>
+                                    </button>
                                     {% else %}
-                                    Privado
+                                    {% if doc.visible_para_analista %}
+                                    <span class="badge bg-success"><i class="bi bi-eye"></i></span>
+                                    {% else %}
+                                    <span class="badge bg-secondary"><i class="bi bi-eye-slash"></i></span>
                                     {% endif %}
-                                </button>
-                            </form>
-                            {% endif %}
-                            <small class="text-muted d-block">Subido por: {{ doc.uploaded_by.nombre_completo }}</small>
-                        </div>
-                        <a href="{{ url_for('main.download_file', filename=doc.filename) }}"
-                            class="btn btn-sm btn-outline-secondary">Descargar</a>
-                    </li>
-                    {% else %}
-                    <li class="list-group-item text-muted">No hay documentos disponibles.</li>
-                    {% endfor %}
-                </ul>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">
+                                    {% if current_user.rol == 'Abogado' %}
+                                    <button
+                                        class="btn btn-sm btn-outline-{{ 'primary' if doc.visible_para_cliente else 'secondary' }} border-0"
+                                        onclick="toggleVisibility({{ doc.id }}, this, 'client')"
+                                        title="{{ 'Visible' if doc.visible_para_cliente else 'Oculto' }}">
+                                        <i class="bi bi-person{{ '-check' if doc.visible_para_cliente else '-x' }}"></i>
+                                    </button>
+                                    {% else %}
+                                    {% if doc.visible_para_cliente %}
+                                    <span class="badge bg-primary"><i class="bi bi-person-check"></i></span>
+                                    {% else %}
+                                    <span class="badge bg-secondary"><i class="bi bi-person-x"></i></span>
+                                    {% endif %}
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">
+                                    <a href="{{ url_for('main.download_file', filename=doc.filename) }}"
+                                        class="btn btn-sm btn-light text-secondary">
+                                        <i class="bi bi-download"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="5" class="text-center text-muted py-3">No hay documentos registrados.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <script>
+                    function toggleVisibility(docId, btn, type) {
+                        const endpoint = type === 'analyst'
+                            ? `/document/${docId}/toggle_analyst_visibility`
+                            : `/document/${docId}/toggle_client_visibility`;
+
+                        fetch(endpoint, { method: 'POST' })
+                            .then(response => response.json())
+                            .then(data => {
+                                if (data.success) {
+                                    const icon = btn.querySelector('i');
+                                    if (type === 'analyst') {
+                                        if (data.visible) {
+                                            btn.classList.replace('btn-outline-secondary', 'btn-outline-success');
+                                            icon.className = 'bi bi-eye';
+                                        } else {
+                                            btn.classList.replace('btn-outline-success', 'btn-outline-secondary');
+                                            icon.className = 'bi bi-eye-slash';
+                                        }
+                                    } else {
+                                        if (data.visible) {
+                                            btn.classList.replace('btn-outline-secondary', 'btn-outline-primary');
+                                            icon.className = 'bi bi-person-check';
+                                        } else {
+                                            btn.classList.replace('btn-outline-primary', 'btn-outline-secondary');
+                                            icon.className = 'bi bi-person-x';
+                                        }
+                                    }
+                                } else {
+                                    alert('Error al actualizar visibilidad');
+                                }
+                            })
+                            .catch(error => console.error('Error:', error));
+                    }
+                </script>
             </div>
         </div>
 
@@ -310,7 +491,7 @@
 
                 <!-- Analysis Conclusion -->
                 <h6 class="mb-3">Conclusión del Análisis</h6>
-                {% if current_user.rol == 'Analista' %}
+                {% if current_user.rol in ['Analista', 'Abogado'] %}
                 <form action="{{ url_for('main.update_analysis', client_id=client.id) }}" method="POST">
                     <div class="mb-3">
                         <textarea class="form-control" name="conclusion_analisis" rows="3"
@@ -546,4 +727,3 @@
         });
     </script>
     {% endblock %}
-    ```

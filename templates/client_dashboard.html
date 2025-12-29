@@ -10,6 +10,165 @@
             class="badge rounded-pill bg-{{ 'success' if client.estado in ['Radicado', 'Finalizado', 'Con_Contrato'] else 'warning' }} fs-4 px-4 py-2">
             {{ client.estado.replace('_', ' ') }}
         </span>
+        <div class="mt-3">
+            <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal"
+                data-bs-target="#changePasswordModal">
+                <i class="bi bi-key"></i> Cambiar Contraseña
+            </button>
+        </div>
+    </div>
+
+    <!-- Duplicate Modal Removed (Now in base.html) -->
+
+    <!-- Section D: Chat / Centro de Consultas -->
+    <div class="row g-4 mb-4">
+        <div class="col-12">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-info text-white d-flex align-items-center">
+                    <i class="bi bi-chat-dots me-2"></i>
+                    <h5 class="mb-0">Centro de Consultas</h5>
+                </div>
+                <div class="card-body">
+                    <div id="chat-history" class="p-3 border rounded mb-3"
+                        style="height: 300px; overflow-y: auto; background-color: #f8f9fa;">
+                        {% if client.messages %}
+                        {% for msg in client.messages|sort(attribute='timestamp') %}
+                        <div class="mb-2 {{ 'text-end' if msg.sender.rol == 'Cliente' else 'text-start' }}">
+                            <div class="d-inline-block p-2 rounded {{ 'bg-primary text-white' if msg.sender.rol == 'Cliente' else 'bg-white border text-dark' }}"
+                                style="max-width: 80%; text-align: left;">
+                                {{ msg.message }}
+                            </div>
+                            <small class="d-block text-muted mt-1" style="font-size: 0.75rem;">
+                                {{ msg.timestamp.strftime('%d/%m %H:%M') }} - {{ 'Yo' if msg.sender.rol == 'Cliente'
+                                else 'Abogado' }}
+                            </small>
+                        </div>
+                        {% endfor %}
+                        {% else %}
+                        <p class="text-center text-muted small mt-5" id="no-messages">
+                            <i class="bi bi-chat-dots fs-1 d-block mb-2"></i>
+                            ¿Tienes dudas? Escríbenos aquí.
+                        </p>
+                        {% endif %}
+                    </div>
+                    <div class="input-group">
+                        <input type="text" id="chat-input" class="form-control" placeholder="Escribe tu consulta...">
+                        <button class="btn btn-info text-white" type="button" id="send-btn">
+                            <i class="bi bi-send-fill"></i> Enviar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const chatHistory = document.getElementById('chat-history');
+            const chatInput = document.getElementById('chat-input');
+            const sendBtn = document.getElementById('send-btn');
+            const clientId = {{ client.id }};
+
+        // Auto-scroll to bottom
+        function scrollToBottom() {
+            if (chatHistory) chatHistory.scrollTop = chatHistory.scrollHeight;
+        }
+        scrollToBottom();
+
+        function sendMessage() {
+            const message = chatInput.value.trim();
+            if (!message) return;
+
+            fetch(`/client/${clientId}/send_message`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ message: message })
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const noMsg = document.getElementById('no-messages');
+                        if (noMsg) noMsg.remove();
+
+                        // Construct HTML for new message (Client side)
+                        // Client sent it -> text-end, bg-primary
+                        const now = new Date();
+                        const timeString = `${now.getDate()}/${now.getMonth() + 1} ${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+                        const div = document.createElement('div');
+                        div.className = "mb-2 text-end";
+                        div.innerHTML = `
+                            <div class="d-inline-block p-2 rounded bg-primary text-white" style="max-width: 80%; text-align: left;">
+                                ${message}
+                            </div>
+                            <small class="d-block text-muted mt-1" style="font-size: 0.75rem;">
+                                ${timeString} - Yo
+                            </small>
+                        `;
+
+                        chatHistory.appendChild(div);
+                        chatInput.value = '';
+                        scrollToBottom();
+                    } else {
+                        alert(data.message);
+                    }
+                })
+                .catch(error => console.error('Error:', error));
+        }
+
+        if (sendBtn) sendBtn.addEventListener('click', sendMessage);
+        if (chatInput) chatInput.addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') sendMessage();
+        });
+        });
+    </script>
+
+    <!-- Section C: Digital File -->
+    <div class="row g-4 mb-4">
+        <div class="col-12">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-primary text-white d-flex align-items-center">
+                    <i class="bi bi-folder2-open me-2"></i>
+                    <h5 class="mb-0">Mis archivos</h5>
+                </div>
+                <div class="card-body">
+                    {% if documents %}
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Nombre del Archivo</th>
+                                    <th>Fecha</th>
+                                    <th class="text-end">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for doc in documents %}
+                                <tr>
+                                    <td>
+                                        <i class="bi bi-file-earmark-text text-primary me-2"></i>
+                                        {{ doc.filename.split('_', 2)[-1] }}
+                                    </td>
+                                    <td>{{ doc.created_at.strftime('%Y-%m-%d') }}</td>
+                                    <td class="text-end">
+                                        <a href="{{ url_for('main.download_file', filename=doc.filename) }}"
+                                            class="btn btn-sm btn-outline-primary" download>
+                                            <i class="bi bi-download"></i> Descargar
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted text-center py-3">No hay documentos compartidos en este momento.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
     </div>
 
     <div class="row g-4">

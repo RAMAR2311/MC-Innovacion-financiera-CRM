@@ -11,12 +11,20 @@
 <div class="card shadow-sm mb-4">
     <div class="card-body">
         <form action="{{ url_for('main.analyst_dashboard') }}" method="GET" class="row g-3">
-            <div class="col-md-10">
-                <input type="text" class="form-control" name="search"
-                    placeholder="Buscar por nombre, cédula o teléfono..." value="{{ request.args.get('search', '') }}">
+            <div class="col-md-4">
+                <input type="text" class="form-control" name="nombre" placeholder="Buscar por Nombre"
+                    value="{{ request.args.get('nombre', '') }}">
             </div>
-            <div class="col-md-2">
+            <div class="col-md-3">
+                <input type="text" class="form-control" name="analista" placeholder="Buscar por Analista"
+                    value="{{ request.args.get('analista', '') }}">
+            </div>
+            <div class="col-md-3">
+                <input type="date" class="form-control" name="fecha" value="{{ request.args.get('fecha', '') }}">
+            </div>
+            <div class="col-md-2 d-flex gap-2">
                 <button type="submit" class="btn btn-primary w-100">Buscar</button>
+                <a href="{{ url_for('main.analyst_dashboard') }}" class="btn btn-secondary w-100">Limpiar</a>
             </div>
         </form>
     </div>

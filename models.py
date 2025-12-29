@@ -73,6 +73,7 @@ class Document(db.Model):
     client_id = db.Column(db.Integer, db.ForeignKey('client.id'), nullable=False)
     uploaded_by_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     visible_para_analista = db.Column(db.Boolean, default=False)
+    visible_para_cliente = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     uploaded_by = db.relationship('User', backref='documents')
@@ -106,3 +107,14 @@ class ContractInstallment(db.Model):
     estado = db.Column(db.String(50), default='Pendiente') # 'Pendiente', 'Pagada', 'En Mora'
 
     payment_contract = db.relationship('PaymentContract', backref='installments')
+
+class ChatMessage(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    client_id = db.Column(db.Integer, db.ForeignKey('client.id'), nullable=False)
+    sender_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    message = db.Column(db.Text, nullable=False)
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+    is_read = db.Column(db.Boolean, default=False)
+
+    client = db.relationship('Client', backref='messages')
+    sender = db.relationship('User', backref='sent_messages')
