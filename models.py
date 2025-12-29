@@ -9,8 +9,10 @@ class User(UserMixin, db.Model):
     nombre_completo = db.Column(db.String(100), nullable=False)
     telefono = db.Column(db.String(20))
     email = db.Column(db.String(120), unique=True, nullable=False)
-    rol = db.Column(db.String(20), nullable=False)  # 'Admin', 'Analista', 'Abogado'
+    rol = db.Column(db.String(20), nullable=False)  # 'Admin', 'Analista', 'Abogado', 'Aliado'
     password = db.Column(db.String(200)) # Added password for auth
+
+    payments = db.relationship('AllyPayment', backref='ally', lazy=True)
 
 class Client(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -21,7 +23,7 @@ class Client(db.Model):
     email = db.Column(db.String(120))
     ciudad = db.Column(db.String(50))
     motivo_consulta = db.Column(db.Text)
-    estado = db.Column(db.String(50), default='Nuevo') # 'Nuevo', 'Informacion_Incompleta', 'Pendiente', 'Pendiente_Analisis', 'Con_Contrato'
+    estado = db.Column(db.String(50), default='Nuevo') # 'Nuevo', 'Informacion_Incompleta', 'Pendiente_Analisis', 'Con_Contrato', 'Con_Analisis', 'Radicado', 'Finalizado', 'Suspendido_Pago', 'Finalizado_Exitoso', 'Cerrado_Pago'
     analista_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     abogado_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -37,10 +39,10 @@ class FinancialObligation(db.Model):
     entidad = db.Column(db.String(100), nullable=False)
     estado = db.Column(db.String(50), nullable=False) # 'Al día', 'Reportado', 'Reporte negativo de tiempo'
     valor = db.Column(db.Float, nullable=False)
-    estado_legal = db.Column(db.String(50), default='Sin Iniciar') # 'Sin Iniciar', 'Radicado', 'En Proceso', 'En Tutela', 'Finalizado'
+    estado_legal = db.Column(db.String(100), default='Sin Iniciar') # 'Sin Iniciar', 'Derecho de aclaración', 'Refutación de pruebas', 'Derecho de petición', 'Fallo al derecho', 'Refutación a ese fallo', 'Solicitud de reposición', 'Queja superintendencia', 'Queja defensoría', 'Tutelas fallo', 'Tutela', 'Demanda juzgado', 'Demanda a la SIC', 'Negociación en curso', 'Negociación entregada', 'Negociación incumplida por el cliente', 'Finalizado'
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    client = db.relationship('Client', backref='financial_obligations')
+    client = db.relationship('Client', backref=db.backref('financial_obligations', cascade='all, delete-orphan'))
 
 class Interaction(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -77,7 +79,7 @@ class Document(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     uploaded_by = db.relationship('User', backref='documents')
-    client = db.relationship('Client', backref='documents')
+    client = db.relationship('Client', backref=db.backref('documents', cascade='all, delete-orphan'))
 
 class PaymentDiagnosis(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -87,7 +89,7 @@ class PaymentDiagnosis(db.Model):
     metodo_pago = db.Column(db.String(50)) # 'Nequi', 'Daviplata', 'Bancolombia', 'Link de pago', 'Efectivo'
     verificado = db.Column(db.Boolean, default=False)
 
-    client = db.relationship('Client', backref=db.backref('payment_diagnosis', uselist=False))
+    client = db.relationship('Client', backref=db.backref('payment_diagnosis', uselist=False, cascade='all, delete-orphan'))
 
 class PaymentContract(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -95,7 +97,7 @@ class PaymentContract(db.Model):
     valor_total = db.Column(db.Float)
     numero_cuotas = db.Column(db.Integer)
 
-    client = db.relationship('Client', backref=db.backref('payment_contract', uselist=False))
+    client = db.relationship('Client', backref=db.backref('payment_contract', uselist=False, cascade='all, delete-orphan'))
 
 class ContractInstallment(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -116,5 +118,18 @@ class ChatMessage(db.Model):
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
     is_read = db.Column(db.Boolean, default=False)
 
-    client = db.relationship('Client', backref='messages')
+    client = db.relationship('Client', backref=db.backref('messages', cascade='all, delete-orphan'))
     sender = db.relationship('User', backref='sent_messages')
+
+class AdministrativeExpense(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    descripcion = db.Column(db.String(255), nullable=False)
+    valor = db.Column(db.Float, nullable=False)
+    fecha = db.Column(db.Date, default=datetime.utcnow)
+
+class AllyPayment(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    filename = db.Column(db.String(255), nullable=False)
+    observation = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    ally_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)

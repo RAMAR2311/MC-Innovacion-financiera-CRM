@@ -36,7 +36,7 @@
                 <p class="fw-bold">{{ client.login_user.email }}</p>
                 {% else %}
                 <p class="small">Este cliente AÚN NO tiene acceso al portal.</p>
-                <form action="{{ url_for('main.generate_client_access', client_id=client.id) }}" method="POST">
+                <form action="{{ url_for('admin.generate_client_access', client_id=client.id) }}" method="POST">
                     <button type="submit" class="btn btn-warning w-100">
                         Crear Usuario de Acceso
                     </button>
@@ -88,6 +88,14 @@
                             </option>
                             <option value="Finalizado" {% if client.estado=='Finalizado' %}selected{% endif %}>
                                 Finalizado</option>
+                            <option value="Suspendido_Pago" {% if client.estado=='Suspendido_Pago' %}selected{% endif
+                                %}>
+                                Suspendido por Pago</option>
+                            <option value="Finalizado_Exitoso" {% if client.estado=='Finalizado_Exitoso' %}selected{%
+                                endif %}>
+                                Finalizado Exitoso</option>
+                            <option value="Cerrado_Pago" {% if client.estado=='Cerrado_Pago' %}selected{% endif %}>
+                                Cerrado por Pago</option>
                         </select>
                     </div>
                     <button type="submit" class="btn btn-primary w-100">Actualizar Estado</button>
@@ -104,7 +112,21 @@
             </div>
             <div class="card-body">
                 <p>Una vez completada la revisión inicial, envía el caso al departamento legal.</p>
-                <form action="{{ url_for('main.send_to_lawyer', client_id=client.id) }}" method="POST">
+                <form action="{{ url_for('analyst.send_to_lawyer', client_id=client.id) }}" method="POST">
+                    <button type="submit" class="btn btn-dark w-100">Enviar a Abogado</button>
+                </form>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if current_user.rol == 'Aliado' and client.estado in ['Nuevo', 'Informacion_Incompleta'] %}
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-warning text-dark">
+                <h5 class="mb-0">Acciones de Aliado</h5>
+            </div>
+            <div class="card-body">
+                <p>Una vez completada la revisión inicial, envía el caso al departamento legal.</p>
+                <form action="{{ url_for('aliados.send_to_lawyer', client_id=client.id) }}" method="POST">
                     <button type="submit" class="btn btn-dark w-100">Enviar a Abogado</button>
                 </form>
             </div>
@@ -170,7 +192,7 @@
                                     {% if current_user.rol == 'Abogado' %}
                                     <button
                                         class="btn btn-sm btn-outline-{{ 'success' if doc.visible_para_analista else 'secondary' }} border-0"
-                                        onclick="toggleVisibility({{ doc.id }}, this, 'analyst')"
+                                        onclick="toggleVisibility('{{ doc.id }}', this, 'analyst')"
                                         title="{{ 'Visible' if doc.visible_para_analista else 'Oculto' }}">
                                         <i class="bi bi-eye{{ '' if doc.visible_para_analista else '-slash' }}"></i>
                                     </button>
@@ -186,7 +208,7 @@
                                     {% if current_user.rol == 'Abogado' %}
                                     <button
                                         class="btn btn-sm btn-outline-{{ 'primary' if doc.visible_para_cliente else 'secondary' }} border-0"
-                                        onclick="toggleVisibility({{ doc.id }}, this, 'client')"
+                                        onclick="toggleVisibility('{{ doc.id }}', this, 'client')"
                                         title="{{ 'Visible' if doc.visible_para_cliente else 'Oculto' }}">
                                         <i class="bi bi-person{{ '-check' if doc.visible_para_cliente else '-x' }}"></i>
                                     </button>
@@ -302,6 +324,10 @@
                             <option value="Tutela">Tutela</option>
                             <option value="Demanda juzgado">Demanda juzgado</option>
                             <option value="Demanda a la SIC">Demanda a la SIC</option>
+                            <option value="Negociación en curso">Negociación en curso</option>
+                            <option value="Negociación entregada">Negociación entregada</option>
+                            <option value="Negociación incumplida por el cliente">Negociación incumplida por el cliente
+                            </option>
                             <option value="Finalizado">Finalizado</option>
                         </select>
                     </div>
@@ -372,6 +398,15 @@
                                             <option value="Demanda a la SIC" {% if
                                                 obligation.estado_legal=='Demanda a la SIC' %}selected{% endif %}>
                                                 Demanda a la SIC</option>
+                                            <option value="Negociación en curso" {% if
+                                                obligation.estado_legal=='Negociación en curso' %}selected{% endif %}>
+                                                Negociación en curso</option>
+                                            <option value="Negociación entregada" {% if
+                                                obligation.estado_legal=='Negociación entregada' %}selected{% endif %}>
+                                                Negociación entregada</option>
+                                            <option value="Negociación incumplida por el cliente" {% if
+                                                obligation.estado_legal=='Negociación incumplida por el cliente'
+                                                %}selected{% endif %}>Negociación incumplida por el cliente</option>
                                             <option value="Finalizado" {% if obligation.estado_legal=='Finalizado'
                                                 %}selected{% endif %}>Finalizado</option>
                                         </select>
@@ -418,7 +453,7 @@
 
                 <!-- Diagnosis Section -->
                 <h6 class="mb-3">Diagnóstico Inicial</h6>
-                <form action="{{ url_for('main.save_payment_diagnosis', client_id=client.id) }}" method="POST"
+                <form action="{{ url_for('lawyer.save_payment_diagnosis', client_id=client.id) }}" method="POST"
                     class="mb-4">
                     <fieldset {% if is_analyst %}disabled{% endif %}>
                         <div class="row g-3 align-items-end">
@@ -472,7 +507,7 @@
                 <!-- Contract Section -->
                 <!-- Contract Section -->
                 <h6 class="mb-3">Contrato y Cuotas (Fijo: 6 Cuotas)</h6>
-                <form action="{{ url_for('main.save_contract_details', client_id=client.id) }}" method="POST"
+                <form action="{{ url_for('lawyer.save_contract_details', client_id=client.id) }}" method="POST"
                     id="contractForm">
                     <fieldset {% if is_analyst %}disabled{% endif %}>
 

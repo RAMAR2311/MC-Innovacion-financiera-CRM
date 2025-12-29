@@ -2,21 +2,21 @@
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h2>Panel de Analista</h2>
-    <a href="{{ url_for('analyst.new_client') }}" class="btn btn-success">
+    <h2>Panel de Aliado</h2>
+    <a href="{{ url_for('aliados.aliados_new_client') }}" class="btn btn-success">
         <i class="bi bi-plus-circle"></i> Nuevo Cliente
     </a>
 </div>
 
 <div class="card shadow-sm mb-4">
     <div class="card-body">
-        <form action="{{ url_for('analyst.analyst_dashboard') }}" method="GET" class="row g-3">
+        <form action="{{ url_for('aliados.aliados_dashboard') }}" method="GET" class="row g-3">
             <div class="col-md-4">
                 <input type="text" class="form-control" name="nombre" placeholder="Buscar por Nombre"
                     value="{{ request.args.get('nombre', '') }}">
             </div>
             <div class="col-md-3">
-                <input type="text" class="form-control" name="analista" placeholder="Buscar por Analista"
+                <input type="text" class="form-control" name="analista" placeholder="Buscar por Aliado"
                     value="{{ request.args.get('analista', '') }}">
             </div>
             <div class="col-md-3">
@@ -24,33 +24,13 @@
             </div>
             <div class="col-md-2 d-flex gap-2">
                 <button type="submit" class="btn btn-primary w-100">Buscar</button>
-                <a href="{{ url_for('analyst.analyst_dashboard') }}" class="btn btn-secondary w-100">Limpiar</a>
+                <a href="{{ url_for('aliados.aliados_dashboard') }}" class="btn btn-secondary w-100">Limpiar</a>
             </div>
         </form>
     </div>
 </div>
 
-<!-- Monthly Goal Progress Card -->
-<div class="card shadow-sm mb-4">
-    <div class="card-header bg-primary text-white">
-        <h5 class="mb-0">Meta del Mes (Análisis Aprobados)</h5>
-    </div>
-    <div class="card-body">
-        <div class="d-flex justify-content-between mb-2">
-            <span class="fw-bold">{{ progreso }} / {{ meta }} Análisis</span>
-            <span class="fw-bold">{{ "{:.0f}".format(porcentaje) }}%</span>
-        </div>
-        <div class="progress" style="height: 25px;">
-            <div class="progress-bar 
-                {% if porcentaje < 40 %}bg-danger
-                {% elif porcentaje < 80 %}bg-warning text-dark
-                {% else %}bg-success{% endif %}" role="progressbar" style="width: {{ porcentaje }}%;"
-                aria-valuenow="{{ porcentaje }}" aria-valuemin="0" aria-valuemax="100">
-                {{ "{:.0f}".format(porcentaje) }}%
-            </div>
-        </div>
-    </div>
-</div>
+
 
 <div class="card shadow-sm">
     <div class="card-header bg-light">

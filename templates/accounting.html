@@ -3,6 +3,37 @@
 {% block content %}
 <h2 class="mb-4">Contabilidad y Finanzas</h2>
 
+<!-- Filter Form -->
+<form method="GET" class="row g-2 mb-4 align-items-center bg-light p-3 rounded border">
+    <div class="col-auto">
+        <label for="start_date" class="col-form-label fw-bold">Fecha Inicio</label>
+    </div>
+    <div class="col-auto">
+        <input type="date" class="form-control form-control-sm" name="start_date" value="{{ start_date or '' }}">
+    </div>
+    <div class="col-auto">
+        <label for="end_date" class="col-form-label fw-bold">Fecha Fin</label>
+    </div>
+    <div class="col-auto">
+        <input type="date" class="form-control form-control-sm" name="end_date" value="{{ end_date or '' }}">
+    </div>
+    <div class="col-auto">
+        <label for="estado_cuota" class="col-form-label fw-bold ms-2">Estado Cuota:</label>
+    </div>
+    <div class="col-auto">
+        <select name="estado_cuota" id="estado_cuota" class="form-select form-select-sm">
+            <option value="todos" {% if current_filter=='todos' or not current_filter %}selected{% endif %}>
+                Todas</option>
+            <option value="Pagada" {% if current_filter=='Pagada' %}selected{% endif %}>Pagada</option>
+            <option value="Pendiente" {% if current_filter=='Pendiente' %}selected{% endif %}>Pendiente</option>
+            <option value="En Mora" {% if current_filter=='En Mora' %}selected{% endif %}>En Mora</option>
+        </select>
+    </div>
+    <div class="col-auto">
+        <button type="submit" class="btn btn-sm btn-primary">Filtrar</button>
+    </div>
+</form>
+
 <!-- Section A: KPIs -->
 <div class="row mb-4">
     <div class="col-md-4">
@@ -49,7 +80,7 @@
 <!-- Section C: Tables -->
 <div class="row">
     <div class="col-md-6">
-        <h4>Últimos Diagnósticos Pagados</h4>
+        <h4>Diagnósticos Pagados</h4>
         <div class="table-responsive">
             <table class="table table-striped table-sm">
                 <thead>
@@ -77,23 +108,6 @@
         <div class="d-flex justify-content-between align-items-center mb-2">
             <h4>Historial de Cuotas</h4>
         </div>
-
-        <!-- Filter Form -->
-        <form method="GET" class="row g-2 mb-3 align-items-center">
-            <div class="col-auto">
-                <label for="estado_cuota" class="col-form-label">Filtrar por:</label>
-            </div>
-            <div class="col-auto">
-                <select name="estado_cuota" id="estado_cuota" class="form-select form-select-sm"
-                    onchange="this.form.submit()">
-                    <option value="todos" {% if current_filter=='todos' or not current_filter %}selected{% endif %}>
-                        Todas</option>
-                    <option value="Pagada" {% if current_filter=='Pagada' %}selected{% endif %}>Pagada</option>
-                    <option value="Pendiente" {% if current_filter=='Pendiente' %}selected{% endif %}>Pendiente</option>
-                    <option value="En Mora" {% if current_filter=='En Mora' %}selected{% endif %}>En Mora</option>
-                </select>
-            </div>
-        </form>
 
         <div class="table-responsive">
             <table class="table table-striped table-sm">

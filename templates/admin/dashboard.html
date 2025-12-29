@@ -22,6 +22,7 @@
                         <th>Email</th>
                         <th>Rol</th>
                         <th>Teléfono</th>
+                        <th>Acciones</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -32,6 +33,19 @@
                         <td>{{ user.email }}</td>
                         <td><span class="badge bg-secondary">{{ user.rol }}</span></td>
                         <td>{{ user.telefono or '-' }}</td>
+                        <td>
+                            {% if user.id != current_user.id %}
+                            <form action="{{ url_for('admin.delete_user', user_id=user.id) }}" method="POST"
+                                onsubmit="return confirm('¿Estás seguro de eliminar a este usuario? Esta acción es irreversible.');"
+                                style="display:inline;">
+                                <button type="submit" class="btn btn-sm btn-danger" title="Eliminar">
+                                    <i class="bi bi-trash"></i> Eliminar
+                                </button>
+                            </form>
+                            {% else %}
+                            <span class="text-muted small">Actual</span>
+                            {% endif %}
+                        </td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -48,7 +62,7 @@
                 <h5 class="modal-title" id="createUserModalLabel">Nuevo Usuario</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <form action="{{ url_for('main.create_user') }}" method="POST">
+            <form action="{{ url_for('admin.create_user') }}" method="POST">
                 <div class="modal-body">
                     <div class="mb-3">
                         <label for="nombre" class="form-label">Nombre Completo</label>
@@ -70,6 +84,7 @@
                         <label for="rol" class="form-label">Rol</label>
                         <select class="form-select" id="rol" name="rol" required>
                             <option value="Analista">Analista</option>
+                            <option value="Aliado">Aliado</option>
                             <option value="Abogado">Abogado</option>
                             <option value="Admin">Admin</option>
                         </select>

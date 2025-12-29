@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Reporte Balance General</title>
+    <style>
+        /* @page removed for compatibility */
+
+        body {
+            font-family: Helvetica, Arial, sans-serif;
+            font-size: 11pt;
+            color: #333;
+        }
+
+        h1 {
+            color: #2c3e50;
+            border-bottom: 2px solid #2c3e50;
+            padding-bottom: 10px;
+        }
+
+        h2 {
+            color: #34495e;
+            margin-top: 20px;
+            font-size: 14pt;
+        }
+
+        .header-info {
+            margin-bottom: 30px;
+            font-size: 10pt;
+            color: #666;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+
+        th,
+        td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+
+        th {
+            background-color: #f2f2f2;
+            color: #333;
+            font-weight: bold;
+        }
+
+        .amount {
+            text-align: right;
+            font-family: monospace;
+        }
+
+        .summary-box {
+            background-color: #f9f9f9;
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        .summary-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+            border-bottom: 1px dashed #eee;
+            padding-bottom: 5px;
+        }
+
+        .total-row {
+            font-weight: bold;
+            font-size: 12pt;
+            border-top: 2px solid #333;
+            margin-top: 10px;
+            padding-top: 10px;
+        }
+
+        .badge {
+            padding: 2px 5px;
+            border-radius: 3px;
+            font-size: 9pt;
+            color: white;
+        }
+
+        .bg-success {
+            background-color: #28a745;
+        }
+
+        .bg-warning {
+            background-color: #ffc107;
+            color: #333;
+        }
+
+        .bg-danger {
+            background-color: #dc3545;
+        }
+
+        .bg-info {
+            background-color: #17a2b8;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Reporte de Balance General</h1>
+
+    <div class="header-info">
+        <p><strong>Generado el:</strong> {{ generation_date }}</p>
+        <p><strong>Periodo:</strong>
+            {% if start_date %}{{ start_date }}{% else %}Inicio{% endif %}
+            a
+            {% if end_date %}{{ end_date }}{% else %}Actualidad{% endif %}
+        </p>
+        <p><strong>Usuario:</strong> {{ current_user.nombre_completo }}</p>
+    </div>
+
+    <!-- Resumen Ejecutivo -->
+    <div class="summary-box">
+        <h2>Resumen Financiero</h2>
+        <table style="width: 100%; border: none;">
+            <tr style="background-color: white;">
+                <td style="border: none;"><strong>(+) Ingresos Totales</strong></td>
+                <td style="border: none;" class="amount">${{ "{:,.0f}".format(total_ingresos) }}</td>
+            </tr>
+            <tr style="background-color: white;">
+                <td style="border: none;"><strong>(-) Costo del Negocio</strong></td>
+                <td style="border: none;" class="amount">${{ "{:,.0f}".format(costo_negocio) }}</td>
+            </tr>
+            <tr style="background-color: white;">
+                <td style="border: none;"><strong>(-) Gastos Administrativos</strong></td>
+                <td style="border: none;" class="amount">${{ "{:,.0f}".format(total_gastos) }}</td>
+            </tr>
+            <tr style="background-color: #e8f5e9;">
+                <td style="border: none; padding-top: 10px;"><strong>(=) Utilidad Neta</strong></td>
+                <td style="border: none; padding-top: 10px;" class="amount"><strong>${{ "{:,.0f}".format(utilidad_neta)
+                        }}</strong></td>
+            </tr>
+        </table>
+    </div>
+
+    <!-- Detalle de Ingresos -->
+    <h2>Detalle de Ingresos (Muestra)</h2>
+    <p><i>Mostrando los últimos registros de ingresos en el periodo.</i></p>
+    <table>
+        <thead>
+            <tr>
+                <th>Fecha</th>
+                <th>Concepto</th>
+                <th>Monto</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- Here we could mix diagnoses and installments, but let's keep it simple or just show summary if list is too long -->
+            {% for diag in recent_diagnoses[:10] %}
+            <tr>
+                <td>{{ diag.fecha_pago }}</td>
+                <td>Diagnóstico - {{ diag.client.nombre }}</td>
+                <td class="amount">${{ "{:,.0f}".format(diag.valor) }}</td>
+            </tr>
+            {% endfor %}
+            {% for inst in recent_installments[:10] %}
+            <tr>
+                <td>{{ inst.fecha_vencimiento }}</td>
+                <td>Cuota - {{ inst.payment_contract.client.nombre }}</td>
+                <td class="amount">${{ "{:,.0f}".format(inst.valor) }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- Detalle de Gastos -->
+    <h2>Detalle de Gastos Administrativos</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Fecha</th>
+                <th>Descripción</th>
+                <th>Valor</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for expense in expenses %}
+            <tr>
+                <td>{{ expense.fecha }}</td>
+                <td>{{ expense.descripcion }}</td>
+                <td class="amount">${{ "{:,.0f}".format(expense.valor) }}</td>
+            </tr>
+            {% endfor %}
+            <tr style="font-weight: bold; background-color: #f2f2f2;">
+                <td colspan="2" style="text-align: right;">Total Gastos:</td>
+                <td class="amount">${{ "{:,.0f}".format(total_gastos) }}</td>
+            </tr>
+        </tbody>
+    </table>
+
+</body>
+
+</html>

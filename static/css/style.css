@@ -1,59 +1,258 @@
-/* ZENIC CRM Basic Styles */
+/* ZENIC CRM Basic Styles & Rebranding */
+
+:root {
+    --color-dorado: #e1b107;
+    --color-rosado: #e8a1a1;
+    --color-gris: #e8e8e4;
+    --color-blanco: #ffffff;
+    --color-negro: #000000;
+}
 
 /* General Layout */
 body {
-    background-color: #f8f9fa;
+    background-color: var(--color-gris);
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    color: var(--color-negro);
+}
+
+/* Navbar Customization */
+.navbar {
+    background-color: var(--color-negro) !important;
+    border-bottom: 3px solid var(--color-rosado);
+    /* Pink accent border */
+}
+
+.navbar-brand,
+.nav-link {
+    color: var(--color-dorado) !important;
+    transition: color 0.3s;
+}
+
+.nav-link:hover {
+    color: var(--color-rosado) !important;
+    /* Pink hover */
+}
+
+.nav-link.text-light {
+    color: var(--color-blanco) !important;
+}
+
+/* Button Customizations */
+.btn-primary {
+    background-color: var(--color-dorado);
+    border-color: var(--color-dorado);
+    color: var(--color-negro);
+    font-weight: 600;
+}
+
+.btn-primary:hover {
+    background-color: #cda006;
+    border-color: #cda006;
+    color: var(--color-negro);
+    box-shadow: 0 0 10px rgba(225, 177, 7, 0.4);
+}
+
+.btn-info,
+.btn-secondary {
+    background-color: var(--color-rosado);
+    border-color: var(--color-rosado);
+    color: var(--color-negro);
+    font-weight: 600;
+}
+
+.btn-info:hover,
+.btn-secondary:hover {
+    background-color: #d68585;
+    border-color: #d68585;
+    color: var(--color-negro);
+    box-shadow: 0 0 8px rgba(232, 161, 161, 0.6);
 }
 
 /* Card Customizations */
 .card {
-    border: none;
+    background-color: var(--color-blanco);
+    border: 1px solid rgba(232, 161, 161, 0.2);
+    /* Subtle pink border */
     border-radius: 10px;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-    transition: transform 0.2s;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+    transition: transform 0.2s, box-shadow 0.2s;
 }
 
 .card:hover {
     transform: translateY(-2px);
+    box-shadow: 0 8px 15px rgba(232, 161, 161, 0.15);
+    /* Pink shadow on hover */
+    border-color: var(--color-rosado);
 }
 
 .card-header {
-    border-bottom: 1px solid rgba(0,0,0,0.05);
+    background-color: transparent;
+    border-bottom: 2px solid var(--color-rosado);
+    /* Changed to Pink for hierarchy */
     border-radius: 10px 10px 0 0 !important;
-    font-weight: 600;
+    font-weight: 700;
+    color: var(--color-negro);
+}
+
+/* Text Headers */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+    color: var(--color-negro);
+    letter-spacing: -0.5px;
+    /* Modern tight spacing */
+}
+
+h2 {
+    border-left: 5px solid var(--color-dorado);
+    padding-left: 15px;
+    margin-bottom: 25px;
+    font-weight: 700;
+}
+
+/* Form Controls - Premium Feel */
+.form-control,
+.form-select {
+    border: 1px solid #e0e0e0;
+    padding: 10px 15px;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+    background-color: #fafafa;
+}
+
+.form-control:focus,
+.form-select:focus {
+    border-color: var(--color-dorado);
+    box-shadow: 0 0 0 4px rgba(225, 177, 7, 0.1);
+    /* Soft gold glow */
+    background-color: #fff;
+}
+
+/* Tables - Clean & Professional */
+.table {
+    border-collapse: separate;
+    border-spacing: 0 8px;
+    /* Row separation space */
+}
+
+.table thead th {
+    border: none;
+    text-transform: uppercase;
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    color: #666;
+    padding-bottom: 10px;
+}
+
+.table tbody tr {
+    background-color: var(--color-blanco);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.table tbody tr:hover {
+    transform: scale(1.01);
+    box-shadow: 0 4px 8px rgba(232, 161, 161, 0.1);
+    /* Subtle pink lift */
+    z-index: 10;
+    position: relative;
+}
+
+.table td {
+    border: none;
+    vertical-align: middle;
+    padding: 15px;
+}
+
+.table td:first-child {
+    border-top-left-radius: 8px;
+    border-bottom-left-radius: 8px;
+}
+
+.table td:last-child {
+    border-top-right-radius: 8px;
+    border-bottom-right-radius: 8px;
 }
 
 /* Installment Rows for Payment Module */
 .installment-row {
     background-color: #ffffff;
-    border-radius: 5px;
-    transition: background-color 0.2s;
+    border: 1px solid #f0f0f0;
+    border-radius: 8px;
+    padding: 10px;
+    margin-bottom: 5px;
+    transition: all 0.3s ease;
 }
 
 .installment-row:hover {
-    background-color: #f1f3f5;
+    background-color: #fffbf0;
+    /* Very light gold tint */
+    border-color: rgba(225, 177, 7, 0.3);
 }
 
-.installment-row input, 
+.installment-row input,
 .installment-row select {
     border: 1px solid #ced4da;
+    border-radius: 6px;
+}
+
+.installment-row input:focus,
+.installment-row select:focus {
+    border-color: var(--color-dorado);
+    box-shadow: 0 0 0 0.2rem rgba(225, 177, 7, 0.25);
+}
+
+/* Badge Tweaks - Modern Pills */
+.badge {
+    font-weight: 600;
+    padding: 0.6em 1em;
+    border-radius: 50rem;
+    /* Pill shape */
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.5px;
+}
+
+/* Custom Scrollbar (Webkit) */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #ccc;
     border-radius: 4px;
 }
 
-.installment-row input:focus, 
-.installment-row select:focus {
-    border-color: #80bdff;
-    box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25);
-}
-
-/* Badge Tweaks */
-.badge {
-    font-weight: 500;
-    padding: 0.5em 0.8em;
+::-webkit-scrollbar-thumb:hover {
+    background: var(--color-dorado);
 }
 
 /* Utility */
 .cursor-pointer {
     cursor: pointer;
+}
+
+/* Animations */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.card {
+    animation: fadeIn 0.5s ease-out forwards;
 }

@@ -2,16 +2,16 @@
 
 {% block content %}
 <div class="row justify-content-center">
-    <div class="col-lg-8">
+    <div class="col-md-8">
         <div class="card shadow-sm">
-            <div class="card-header bg-primary text-white">
-                <h4 class="mb-0">Registrar Nuevo Cliente</h4>
+            <div class="card-header bg-light">
+                <h4 class="mb-0">Registrar Nuevo Cliente (Aliado)</h4>
             </div>
             <div class="card-body">
-                <form method="POST" action="{{ url_for('analyst.new_client') }}">
+                <form method="POST" action="{{ url_for('aliados.aliados_new_client') }}">
                     <div class="row mb-3">
                         <div class="col-md-6">
-                            <label for="nombre" class="form-label">Nombre Completo</label>
+                            <label class="form-label">Nombre Completo *</label>
                             <input type="text" class="form-control" id="nombre" name="nombre" required>
                         </div>
                         <div class="col-md-6">
@@ -52,13 +52,12 @@
                         <textarea class="form-control" id="motivo_consulta" name="motivo_consulta" rows="3"></textarea>
                     </div>
 
-                    <div class="d-flex justify-content-between mt-4">
-                        <a href="{{ url_for('analyst.analyst_dashboard') }}" class="btn btn-secondary">Cancelar</a>
-                        <div>
-                            <button type="submit" name="incomplete" value="1" class="btn btn-warning me-2">Guardar
-                                Incompleto</button>
-                            <button type="submit" class="btn btn-primary">Guardar Cliente</button>
-                        </div>
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <a href="{{ url_for('aliados.aliados_dashboard') }}"
+                            class="btn btn-secondary me-md-2">Cancelar</a>
+                        <button type="submit" name="incomplete" class="btn btn-warning me-md-2">Guardar como
+                            Incompleto</button>
+                        <button type="submit" class="btn btn-primary">Registrar Cliente</button>
                     </div>
                 </form>
             </div>

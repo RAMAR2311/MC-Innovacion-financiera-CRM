@@ -6,7 +6,7 @@
         <div class="card shadow-sm mt-5">
             <div class="card-body p-4">
                 <h3 class="text-center mb-4">Iniciar Sesión</h3>
-                <form method="POST" action="{{ url_for('main.login') }}">
+                <form method="POST" action="{{ url_for('auth.login') }}">
                     <div class="mb-3">
                         <label for="email" class="form-label">Correo Electrónico</label>
                         <input type="email" class="form-control" id="email" name="email" required>

@@ -10,7 +10,7 @@
         <h5 class="mb-0">Filtros de Búsqueda</h5>
     </div>
     <div class="card-body">
-        <form method="GET" action="{{ url_for('main.lawyer_dashboard') }}" class="row g-3">
+        <form method="GET" action="{{ url_for('lawyer.lawyer_dashboard') }}" class="row g-3">
             <div class="col-md-4">
                 <label for="nombre" class="form-label">Nombre o Cédula</label>
                 <input type="text" class="form-control" id="nombre" name="nombre" placeholder="Nombre o cédula..."
@@ -29,7 +29,7 @@
             <div class="col-md-2 d-flex align-items-end">
                 <div class="d-grid gap-2 w-100">
                     <button type="submit" class="btn btn-primary">Buscar</button>
-                    <a href="{{ url_for('main.lawyer_dashboard') }}" class="btn btn-outline-secondary">Limpiar</a>
+                    <a href="{{ url_for('lawyer.lawyer_dashboard') }}" class="btn btn-outline-secondary">Limpiar</a>
                 </div>
             </div>
         </form>
@@ -51,6 +51,9 @@
                         <th>Analista</th>
                         <th>Fecha Registro</th>
                         <th>Acciones</th>
+                        {% if current_user.rol == 'Admin' %}
+                        <th>Acción Admin</th>
+                        {% endif %}
                     </tr>
                 </thead>
                 <tbody>
@@ -78,10 +81,21 @@
                         </td>
                         <td>{{ client.analista.nombre_completo if client.analista else '-' }}</td>
                         <td>{{ client.created_at.strftime('%Y-%m-%d') }}</td>
-                        <td>
+                        <td class="d-flex gap-1">
                             <a href="{{ url_for('main.client_detail', client_id=client.id) }}"
                                 class="btn btn-sm btn-primary">Ver Caso</a>
                         </td>
+                        {% if current_user.rol == 'Admin' %}
+                        <td>
+                            <form action="{{ url_for('admin.delete_client', client_id=client.id) }}" method="POST"
+                                class="d-inline">
+                                <button type="submit" class="btn btn-danger btn-sm"
+                                    onclick="return confirm('¿ESTÁ SEGURO? Esta acción borrará al cliente y TODOS sus documentos, pagos e historial permanentemente.');">
+                                    <i class="bi bi-trash"></i> Eliminar
+                                </button>
+                            </form>
+                        </td>
+                        {% endif %}
                     </tr>
                     {% else %}
                     <tr>

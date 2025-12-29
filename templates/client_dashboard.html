@@ -156,10 +156,11 @@
                     <div class="mb-4">
                         <label class="small text-muted fw-bold mb-1">Progreso del Contrato</label>
                         <div class="progress" style="height: 25px;">
+                            {% set prog_val = progress_percentage|default(0) %}
                             <div class="progress-bar bg-success progress-bar-striped progress-bar-animated"
-                                role="progressbar" style="width: {{ progress_percentage }}%;"
-                                aria-valuenow="{{ progress_percentage }}" aria-valuemin="0" aria-valuemax="100">
-                                {{ "%.1f"|format(progress_percentage) }}%
+                                role="progressbar" style="width: 0%" data-width="{{ prog_val }}%"
+                                aria-valuenow="{{ prog_val }}" aria-valuemin="0" aria-valuemax="100">
+                                {{ "%.1f"|format(prog_val) }}%
                             </div>
                         </div>
                     </div>
@@ -206,4 +207,17 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        var bars = document.querySelectorAll('.progress-bar[data-width]');
+        bars.forEach(function (bar) {
+            setTimeout(function () {
+                bar.style.width = bar.getAttribute('data-width');
+            }, 100);
+        });
+    });
+</script>
 {% endblock %}

@@ -19,9 +19,19 @@ login_manager.login_view = 'login'
 def load_user(user_id):
     return User.query.get(int(user_id))
 
-from routes import main
+from routes.auth import auth_bp
+from routes.admin import admin_bp
+from routes.analyst import analyst_bp
+from routes.lawyer import lawyer_bp
+from routes.aliados import aliados_bp
+from routes.main import main_bp
 
-app.register_blueprint(main)
+app.register_blueprint(auth_bp)
+app.register_blueprint(admin_bp)
+app.register_blueprint(analyst_bp)
+app.register_blueprint(lawyer_bp)
+app.register_blueprint(aliados_bp)
+app.register_blueprint(main_bp)
 
 if __name__ == '__main__':
     with app.app_context():

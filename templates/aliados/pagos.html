@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>Mis Pagos</h2>
+    <a href="{{ url_for('aliados.aliados_dashboard') }}" class="btn btn-secondary">Volver al Panel</a>
+</div>
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">Subir Nuevo Soporte de Pago</h5>
+            </div>
+            <div class="card-body">
+                <form action="{{ url_for('aliados.upload_pago') }}" method="POST" enctype="multipart/form-data">
+                    <div class="row align-items-end">
+                        <div class="col-md-5">
+                            <label for="file" class="form-label">Soporte PDF *</label>
+                            <input type="file" class="form-control" id="file" name="file" accept=".pdf" required>
+                        </div>
+                        <div class="col-md-5">
+                            <label for="observation" class="form-label">Observación</label>
+                            <textarea class="form-control" id="observation" name="observation" rows="1"
+                                placeholder="Ej: Pago mes de Diciembre"></textarea>
+                        </div>
+                        <div class="col-md-2">
+                            <button type="submit" class="btn btn-success w-100">Subir Soporte</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-header bg-light">
+        <h5 class="mb-0">Historial de Pagos</h5>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Fecha Subida</th>
+                        <th>Nombre del Archivo</th>
+                        <th>Observación</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for pago in pagos %}
+                    <tr>
+                        <td>{{ pago.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                        <td>{{ pago.filename }}</td>
+                        <td>{{ pago.observation or '-' }}</td>
+                        <td>
+                            <a href="{{ url_for('aliados.download_pago', filename=pago.filename) }}"
+                                class="btn btn-sm btn-outline-primary" target="_blank">
+                                <i class="bi bi-download"></i> Descargar
+                            </a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="4" class="text-center text-muted">No has subido ningún soporte de pago aún.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
