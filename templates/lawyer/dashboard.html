@@ -58,12 +58,7 @@
                     <tr>
                         <td>
                             {{ client.nombre }}
-                            {% set unread = unread_counts.get(client.id, 0) %}
-                            {% if unread > 0 %}
-                            <span class="badge bg-danger rounded-pill ms-2" title="{{ unread }} mensajes nuevos">
-                                {{ unread }} <i class="bi bi-chat-dots-fill"></i>
-                            </span>
-                            {% endif %}
+
                         </td>
                         <td>{{ client.tipo_id }} {{ client.numero_id }}</td>
                         <td>

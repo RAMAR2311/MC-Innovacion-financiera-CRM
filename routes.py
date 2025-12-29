@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request, send_from_directory, current_app, jsonify
 from flask_login import login_user, logout_user, login_required, current_user
-from models import db, User, Client, Sale, Interaction, Installment, Document, FinancialObligation, PaymentDiagnosis, PaymentContract, ContractInstallment, ChatMessage
+from models import db, User, Client, Sale, Interaction, Installment, Document, FinancialObligation, PaymentDiagnosis, PaymentContract, ContractInstallment
 from werkzeug.utils import secure_filename
 import os
 from datetime import datetime
@@ -252,36 +252,7 @@ def send_to_lawyer(client_id):
     return redirect(url_for('main.analyst_dashboard'))
 
 # --- Abogado ---
-@main.route('/client/<int:client_id>/send_message', methods=['POST'])
-@login_required
-def send_message(client_id):
-    data = request.get_json()
-    message_text = data.get('message')
-    
-    if not message_text:
-        return jsonify({'success': False, 'message': 'Mensaje vacío'}), 400
-        
-    client = Client.query.get_or_404(client_id)
-    
-    # Validation: Only involved users can chat
-    if current_user.rol == 'Cliente' and client.login_user_id != current_user.id:
-        return jsonify({'success': False, 'message': 'No autorizado'}), 403
-    elif current_user.rol not in ['Abogado', 'Admin', 'Cliente']: # Analysts excluded for now? Prompt implied Lawyer and Client.
-        return jsonify({'success': False, 'message': 'No autorizado'}), 403
-        
-    msg = ChatMessage(
-        client_id=client_id,
-        sender_id=current_user.id,
-        message=message_text,
-        is_read=False
-    )
-    db.session.add(msg)
-    db.session.commit()
-    
-    return jsonify({
-        'success': True, 
-        'message_html': f'<div class="mb-2 text-end"><span class="d-inline-block p-2 rounded bg-primary text-white" style="max-width: 80%;">{msg.message}</span><small class="d-block text-muted" style="font-size: 0.7rem;">Ahora</small></div>'
-    })
+
 
 # --- Abogado ---
 @main.route('/lawyer')
@@ -311,17 +282,9 @@ def lawyer_dashboard():
 
     clients = query.all()
     
-    # Calculate unread messages for each client
-    # Dict {client_id: count}
-    unread_counts = {}
-    for client in clients:
-        # Count messages sent by CLIENT (rol='Cliente') that are not read
-        # Using a join or property check
-        count = ChatMessage.query.join(User, ChatMessage.sender_id == User.id)\
-            .filter(ChatMessage.client_id == client.id, User.rol == 'Cliente', ChatMessage.is_read == False).count()
-        unread_counts[client.id] = count
 
-    return render_template('lawyer/dashboard.html', clients=clients, unread_counts=unread_counts)
+
+    return render_template('lawyer/dashboard.html', clients=clients)
 
 # --- Shared / Client Details ---
 @main.route('/client/<int:client_id>')
@@ -347,20 +310,6 @@ def client_detail(client_id):
     # Filter for Analyst
     if current_user.rol == 'Analista':
         documents = [d for d in documents if d.visible_para_analista]
-
-    # --- Chat Logic: Mark as Read ---
-    if current_user.rol in ['Abogado', 'Admin']:
-        # Mark messages from Client as read
-        unread_msgs = ChatMessage.query.join(User).filter(
-            ChatMessage.client_id == client.id, 
-            User.rol == 'Cliente',
-            ChatMessage.is_read == False
-        ).all()
-        
-        if unread_msgs:
-            for msg in unread_msgs:
-                msg.is_read = True
-            db.session.commit()
             
     return render_template('client_detail.html', client=client, files=files, documents=documents)
 
@@ -695,3 +644,4 @@ def client_portal():
     documents = Document.query.filter_by(client_id=client.id, visible_para_cliente=True).all()
 
     return render_template('client_dashboard.html', client=client, contract=contract, total_pagado=total_pagado, progress_percentage=progress_percentage, documents=documents)
+
