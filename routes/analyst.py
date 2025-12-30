@@ -65,41 +65,31 @@ def analyst_dashboard():
                            meta=meta,
                            porcentaje=porcentaje)
 
+from services.client_service import ClientService
+
 @analyst_bp.route('/analyst/new_client', methods=['GET', 'POST'])
 @login_required
 def new_client():
     if request.method == 'POST':
-        nombre = request.form.get('nombre')
-        telefono = request.form.get('telefono')
-        tipo_id = request.form.get('tipo_id')
-        numero_id = request.form.get('numero_id')
-        email = request.form.get('email')
-        ciudad = request.form.get('ciudad')
-        motivo_consulta = request.form.get('motivo_consulta')
-        contract_number = request.form.get('contract_number')
-        
-        # Lógica para "Información Incompleta" vs "Nuevo"
-        if 'incomplete' in request.form:
-            estado = 'Informacion_Incompleta'
-        else:
-            estado = 'Nuevo'
+        try:
+            # Prepare data dictionary, including the 'incomplete' flag existence check
+            data = request.form.to_dict()
+            if 'incomplete' in request.form:
+                data['incomplete'] = True
+                
+            ClientService.create_client(data, current_user.id)
+            flash('Cliente guardado exitosamente', 'success')
+            return redirect(url_for('analyst.analyst_dashboard'))
             
-        client = Client(
-            nombre=nombre, 
-            telefono=telefono, 
-            tipo_id=tipo_id,
-            numero_id=numero_id,
-            contract_number=contract_number,
-            email=email,
-            ciudad=ciudad,
-            motivo_consulta=motivo_consulta,
-            estado=estado, 
-            analista_id=current_user.id
-        )
-        db.session.add(client)
-        db.session.commit()
-        flash('Cliente guardado', 'success')
-        return redirect(url_for('analyst.analyst_dashboard'))
+        except ValueError as e:
+            flash(str(e), 'danger')
+            # Fallback: Render template again, potentially with preserved data 
+            # (Simplest is just flash error for now)
+            return render_template('analyst/new_client.html')
+        except Exception as e:
+             flash(f"Error inesperado: {str(e)}", 'danger')
+             return render_template('analyst/new_client.html')
+
     return render_template('analyst/new_client.html')
 
 @analyst_bp.route('/client/<int:client_id>/send_to_lawyer', methods=['POST'])

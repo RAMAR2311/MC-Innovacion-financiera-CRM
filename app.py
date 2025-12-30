@@ -2,12 +2,14 @@ from flask import Flask, render_template
 from models import db, User
 from flask_login import LoginManager, current_user
 import os
+from dotenv import load_dotenv
+from config import Config
+
+# Load environment variables from .env file
+load_dotenv()
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'tu_clave_secreta_aqui' # Cambiar en produccion
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///crm.db'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['UPLOAD_FOLDER'] = 'uploads'
+app.config.from_object(Config)
 
 db.init_app(app)
 login_manager = LoginManager()

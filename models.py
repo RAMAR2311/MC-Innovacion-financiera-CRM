@@ -14,6 +14,19 @@ class User(UserMixin, db.Model):
 
     payments = db.relationship('AllyPayment', backref='ally', lazy=True)
 
+class ClientStatus:
+    NUEVO = 'Nuevo'
+    INFORMACION_INCOMPLETA = 'Informacion_Incompleta'
+    PENDIENTE_ANALISIS = 'Pendiente_Analisis'
+    CON_CONTRATO = 'Con_Contrato'
+    CON_ANALISIS = 'Con_Analisis'
+    RADICADO = 'Radicado'
+    FINALIZADO = 'Finalizado'
+    SUSPENDIDO_PAGO = 'Suspendido_Pago'
+    FINALIZADO_EXITOSO = 'Finalizado_Exitoso'
+    CERRADO_PAGO = 'Cerrado_Pago'
+    FINALIZADO_PROCESO_CREDITO = 'Finalizado_Proceso_Credito'
+
 class Client(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     nombre = db.Column(db.String(100))
@@ -24,7 +37,7 @@ class Client(db.Model):
     email = db.Column(db.String(120))
     ciudad = db.Column(db.String(50))
     motivo_consulta = db.Column(db.Text)
-    estado = db.Column(db.String(50), default='Nuevo') # 'Nuevo', 'Informacion_Incompleta', 'Pendiente_Analisis', 'Con_Contrato', 'Con_Analisis', 'Radicado', 'Finalizado', 'Suspendido_Pago', 'Finalizado_Exitoso', 'Cerrado_Pago'
+    estado = db.Column(db.String(50), default=ClientStatus.NUEVO) # Use keys from ClientStatus
     analista_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     abogado_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)

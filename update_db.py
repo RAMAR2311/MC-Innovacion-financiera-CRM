@@ -34,7 +34,22 @@ def update_db():
             except Exception:
                 print("Adding 'last_status_update' column...")
                 conn.execute(text("ALTER TABLE client ADD COLUMN last_status_update DATETIME"))
+                conn.execute(text("ALTER TABLE client ADD COLUMN last_status_update DATETIME"))
                 print("Column 'last_status_update' added.")
+
+            # Check for generic table creation (ClientNote, CaseMessage handled by db.create_all)
+            # But we can verify if they exist in SQLite
+            try:
+                conn.execute(text("SELECT count(*) FROM client_note"))
+                print("Table 'client_note' exists.")
+            except:
+                print("Table 'client_note' will be created by db.create_all().")
+
+            try:
+                conn.execute(text("SELECT count(*) FROM case_message"))
+                print("Table 'case_message' exists.")
+            except:
+                print("Table 'case_message' will be created by db.create_all().")
 
 if __name__ == '__main__':
     update_db()
