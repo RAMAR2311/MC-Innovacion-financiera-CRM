@@ -10,13 +10,18 @@
             <div class="card-body">
                 <form method="POST" action="{{ url_for('aliados.aliados_new_client') }}">
                     <div class="row mb-3">
-                        <div class="col-md-6">
+                        <div class="col-md-4">
                             <label class="form-label">Nombre Completo *</label>
                             <input type="text" class="form-control" id="nombre" name="nombre" required>
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-md-4">
                             <label for="telefono" class="form-label">Teléfono</label>
                             <input type="text" class="form-control" id="telefono" name="telefono" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="contract_number" class="form-label">Número de Contrato</label>
+                            <input type="text" class="form-control" id="contract_number" name="contract_number"
+                                placeholder="Ej: CT-101">
                         </div>
                     </div>
 

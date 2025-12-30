@@ -1,83 +1,178 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="row">
-    <div class="col-md-4">
-        <div class="card shadow-sm mb-4">
-            <div class="card-header bg-info text-white">
-                <h5 class="mb-0">Información del Cliente</h5>
-            </div>
-            <div class="card-body">
-                <h4 class="card-title">{{ client.nombre }}</h4>
-                <p class="card-text"><strong>Email:</strong> {{ client.email }}</p>
-                <p class="card-text"><strong>Teléfono:</strong> {{ client.telefono }}</p>
-                <p class="card-text"><strong>ID:</strong> {{ client.tipo_id }} {{ client.numero_id }}</p>
-                <p class="card-text"><strong>Ciudad:</strong> {{ client.ciudad }}</p>
-                <p class="card-text"><strong>Registrado por:</strong> {{ client.analista.nombre_completo if
-                    client.analista else 'Sistema' }}</p>
-                <p class="card-text"><strong>Estado:</strong>
-                    <span class="badge bg-secondary">{{ client.estado }}</span>
-                </p>
-                <hr>
-                <h6>Motivo de Consulta:</h6>
-                <p>{{ client.motivo_consulta }}</p>
-            </div>
-        </div>
+<style>
+    :root {
+        --primary-color: #0d6efd;
+        --secondary-color: #6c757d;
+        --success-color: #198754;
+        --warning-color: #ffc107;
+        --info-color: #0dcaf0;
+        --dark-color: #212529;
+        --light-bg: #f8f9fa;
+        --card-bg: #ffffff;
+        --chat-me: #e8e8e4;
+        /* Admin/Lawyer color */
+        --chat-other: #e1b107;
+        /* Client color */
+    }
 
-        {% if current_user.rol == 'Admin' %}
-        <div class="card shadow-sm mb-4">
-            <div class="card-header bg-primary text-white">
-                <h5 class="mb-0">Acceso al Portal</h5>
-            </div>
-            <div class="card-body">
-                {% if client.login_user_id %}
-                <p class="text-success fw-bold">Acceso Habilitado</p>
-                <p class="small mb-0">Usuario vinculado:</p>
-                <p class="fw-bold">{{ client.login_user.email }}</p>
-                {% else %}
-                <p class="small">Este cliente AÚN NO tiene acceso al portal.</p>
-                <form action="{{ url_for('admin.generate_client_access', client_id=client.id) }}" method="POST">
-                    <button type="submit" class="btn btn-warning w-100">
-                        Crear Usuario de Acceso
-                    </button>
-                </form>
-                {% endif %}
-            </div>
-        </div>
-        {% endif %}
+    body {
+        background-color: var(--light-bg);
+    }
 
-        {% if current_user.rol == 'Admin' %}
-        <div class="card shadow-sm mb-4">
-            <div class="card-header bg-secondary text-white">
-                <h5 class="mb-0">Acciones</h5>
-            </div>
-            <div class="card-body">
-                <form action="{{ url_for('main.update_status', client_id=client.id) }}" method="POST">
-                    <div class="mb-3">
-                        <label for="new_status" class="form-label">Cambiar Estado</label>
-                        <select class="form-select" name="new_status">
+    /* Common Cards */
+    .dashboard-card {
+        border: none;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        background: var(--card-bg);
+        transition: transform 0.2s, box-shadow 0.2s;
+        margin-bottom: 1.5rem;
+    }
+
+    .card-header-tabs {
+        background: transparent;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+        padding: 0 1rem;
+    }
+
+    .nav-tabs .nav-link {
+        border: none;
+        color: var(--secondary-color);
+        padding: 1rem 1.5rem;
+        font-weight: 500;
+        transition: color 0.2s;
+    }
+
+    .nav-tabs .nav-link:hover {
+        color: var(--primary-color);
+    }
+
+    .nav-tabs .nav-link.active {
+        color: var(--primary-color);
+        border-bottom: 3px solid var(--primary-color);
+        background: transparent;
+    }
+
+    /* Sticky Profile */
+    .sticky-profile {
+        position: sticky;
+        top: 20px;
+        z-index: 100;
+    }
+
+    /* Chat Styling */
+    .chat-container {
+        display: flex;
+        flex-direction: column;
+        height: 500px;
+    }
+
+    .chat-messages {
+        flex-grow: 1;
+        overflow-y: auto;
+        padding: 1rem;
+        background-color: #f8f9fa;
+        border-radius: 8px;
+    }
+
+    .chat-bubble {
+        max-width: 80%;
+        padding: 10px 15px;
+        border-radius: 15px;
+        margin-bottom: 10px;
+        position: relative;
+        font-size: 0.95rem;
+    }
+
+    .chat-me {
+        background-color: var(--chat-me);
+        color: black;
+        align-self: flex-end;
+        border-bottom-right-radius: 2px;
+        margin-left: auto;
+    }
+
+    .chat-other {
+        background-color: var(--chat-other);
+        color: black;
+        align-self: flex-start;
+        border-bottom-left-radius: 2px;
+    }
+
+    /* Animations */
+    .fade-in {
+        animation: fadeIn 0.4s ease-out forwards;
+    }
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+</style>
+
+<div class="container-fluid py-4">
+    <div class="row g-4">
+        <!-- LEFT COLUMN: Sticky Profile & Quick Actions -->
+        <div class="col-lg-3">
+            <div class="sticky-profile">
+                <!-- Profile Card -->
+                <div class="dashboard-card text-center p-4 mb-3">
+                    <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center mx-auto mb-3 shadow-sm"
+                        style="width: 80px; height: 80px; font-size: 2rem;">
+                        {{ client.nombre[0] }}{{ client.nombre.split()[1][0] if client.nombre.split()|length > 1 else ''
+                        }}
+                    </div>
+                    <h5 class="fw-bold mb-1">{{ client.nombre }}</h5>
+                    <p class="text-muted small mb-2">{{ client.email }}</p>
+                    <span
+                        class="badge rounded-pill bg-{{ 'success' if client.estado in ['Radicado', 'Finalizado', 'Con_Contrato', 'Finalizado_Proceso_Credito'] else 'warning' }} px-3 py-2 mb-3">
+                        {{ client.estado.replace('_', ' ') }}
+                    </span>
+
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-outline-primary btn-sm" data-bs-toggle="modal"
+                            data-bs-target="#editGeneralInfoModal">
+                            <i class="bi bi-pencil-square"></i> Editar Perfil
+                        </button>
+                    </div>
+
+                    <hr class="my-3">
+
+                    <div class="text-start small">
+                        <div class="mb-2"><i class="bi bi-telephone me-2 text-primary"></i> {{ client.telefono }}</div>
+                        <div class="mb-2"><i class="bi bi-card-heading me-2 text-primary"></i> {{ client.tipo_id }} {{
+                            client.numero_id }}</div>
+                        <div class="mb-2"><i class="bi bi-geo-alt me-2 text-primary"></i> {{ client.ciudad }}</div>
+                        <div class="mb-2"><i class="bi bi-file-earmark-lock me-2 text-primary"></i> Contrato: <strong>{{
+                                client.contract_number or 'Pendiente' }}</strong></div>
+                        <div><i class="bi bi-person-badge me-2 text-primary"></i> Analista: {{
+                            client.analista.nombre_completo if client.analista else 'N/A' }}</div>
+                    </div>
+                </div>
+
+                <!-- Status Actions -->
+                {% if current_user.rol in ['Admin', 'Abogado'] %}
+                <div class="dashboard-card p-3 mb-3">
+                    <h6 class="fw-bold border-bottom pb-2 mb-3">Cambiar Estado</h6>
+                    <form action="{{ url_for('main.update_status', client_id=client.id) }}" method="POST">
+                        <select class="form-select form-select-sm mb-3" name="new_status">
+                            {% if current_user.rol == 'Admin' %}
                             <option value="Pendiente_Analisis" {% if client.estado=='Pendiente_Analisis' %}selected{%
                                 endif %}>Pendiente Análisis</option>
                             <option value="Con_Contrato" {% if client.estado=='Con_Contrato' %}selected{% endif %}>Con
                                 Contrato</option>
-                        </select>
-                    </div>
-                    <button type="submit" class="btn btn-primary w-100">Actualizar Estado</button>
-                </form>
-            </div>
-        </div>
-        {% endif %}
-
-        {% if current_user.rol == 'Abogado' %}
-        <div class="card shadow-sm mb-4">
-            <div class="card-header bg-secondary text-white">
-                <h5 class="mb-0">Gestión del Caso</h5>
-            </div>
-            <div class="card-body">
-                <form action="{{ url_for('main.update_status', client_id=client.id) }}" method="POST">
-                    <div class="mb-3">
-                        <label for="new_status" class="form-label">Cambiar Estado</label>
-                        <select class="form-select" name="new_status">
+                            <option value="Finalizado_Proceso_Credito" {% if client.estado=='Finalizado_Proceso_Credito'
+                                %}selected{% endif %}>Finalizado Proceso de Crédito</option>
+                            {% elif current_user.rol == 'Abogado' %}
                             <option value="Pendiente_Analisis" {% if client.estado=='Pendiente_Analisis' %}selected{%
                                 endif %}>Pendiente Análisis</option>
                             <option value="Con_Analisis" {% if client.estado=='Con_Analisis' %}selected{% endif %}>Con
@@ -88,578 +183,641 @@
                             </option>
                             <option value="Finalizado" {% if client.estado=='Finalizado' %}selected{% endif %}>
                                 Finalizado</option>
+                            <option value="Finalizado_Proceso_Credito" {% if client.estado=='Finalizado_Proceso_Credito'
+                                %}selected{% endif %}>Finalizado Proceso de Crédito</option>
                             <option value="Suspendido_Pago" {% if client.estado=='Suspendido_Pago' %}selected{% endif
-                                %}>
-                                Suspendido por Pago</option>
+                                %}>Suspendido por Pago</option>
                             <option value="Finalizado_Exitoso" {% if client.estado=='Finalizado_Exitoso' %}selected{%
-                                endif %}>
-                                Finalizado Exitoso</option>
+                                endif %}>Finalizado Exitoso</option>
                             <option value="Cerrado_Pago" {% if client.estado=='Cerrado_Pago' %}selected{% endif %}>
                                 Cerrado por Pago</option>
+                            {% endif %}
                         </select>
-                    </div>
-                    <button type="submit" class="btn btn-primary w-100">Actualizar Estado</button>
-                </form>
-            </div>
-        </div>
-        {% endif %}
-
-
-        {% if current_user.rol == 'Analista' and client.estado in ['Nuevo', 'Informacion_Incompleta'] %}
-        <div class="card shadow-sm mb-4">
-            <div class="card-header bg-warning text-dark">
-                <h5 class="mb-0">Acciones de Analista</h5>
-            </div>
-            <div class="card-body">
-                <p>Una vez completada la revisión inicial, envía el caso al departamento legal.</p>
-                <form action="{{ url_for('analyst.send_to_lawyer', client_id=client.id) }}" method="POST">
-                    <button type="submit" class="btn btn-dark w-100">Enviar a Abogado</button>
-                </form>
-            </div>
-        </div>
-        {% endif %}
-
-        {% if current_user.rol == 'Aliado' and client.estado in ['Nuevo', 'Informacion_Incompleta'] %}
-        <div class="card shadow-sm mb-4">
-            <div class="card-header bg-warning text-dark">
-                <h5 class="mb-0">Acciones de Aliado</h5>
-            </div>
-            <div class="card-body">
-                <p>Una vez completada la revisión inicial, envía el caso al departamento legal.</p>
-                <form action="{{ url_for('aliados.send_to_lawyer', client_id=client.id) }}" method="POST">
-                    <button type="submit" class="btn btn-dark w-100">Enviar a Abogado</button>
-                </form>
-            </div>
-        </div>
-        {% endif %}
-    </div>
-
-    <div class="col-md-8">
-        <div class="card shadow-sm mb-4">
-            <div class="card-header bg-light">
-                <h5 class="mb-0">Archivos y Documentos</h5>
-            </div>
-            <div class="card-body">
-                <form action="{{ url_for('main.upload_file', client_id=client.id) }}" method="POST"
-                    enctype="multipart/form-data" class="mb-4 p-3 bg-light border rounded">
-                    <div class="row g-2 align-items-center">
-                        <div class="col-md-5">
-                            <label class="form-label small fw-bold">Archivo</label>
-                            <input type="file" class="form-control form-control-sm" name="file" required>
-                        </div>
-                        {% if current_user.rol == 'Abogado' %}
-                        <div class="col-md-5">
-                            <label class="form-label small fw-bold d-block">Visibilidad</label>
-                            <div class="form-check form-check-inline">
-                                <input class="form-check-input" type="checkbox" name="visible_para_analista"
-                                    id="checkAnalista">
-                                <label class="form-check-label small" for="checkAnalista">Analista</label>
-                            </div>
-                            <div class="form-check form-check-inline">
-                                <input class="form-check-input" type="checkbox" name="visible_para_cliente"
-                                    id="checkCliente">
-                                <label class="form-check-label small" for="checkCliente">Cliente</label>
-                            </div>
-                        </div>
-                        {% endif %}
-                        <div class="col-md-2 text-end">
-                            <label class="form-label d-block">&nbsp;</label>
-                            <button type="submit" class="btn btn-sm btn-primary w-100">Subir</button>
-                        </div>
-                    </div>
-                </form>
-
-                <h6>Documentos:</h6>
-                <div class="table-responsive">
-                    <table class="table table-bordered table-sm align-middle">
-                        <thead class="table-light">
-                            <tr>
-                                <th>Nombre del Archivo</th>
-                                <th>Subido Por</th>
-                                <th class="text-center" style="width: 100px;">Analista</th>
-                                <th class="text-center" style="width: 100px;">Cliente</th>
-                                <th class="text-center" style="width: 80px;">Acción</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for doc in documents %}
-                            <tr>
-                                <td class="text-truncate" style="max-width: 200px;" title="{{ doc.filename }}">
-                                    {{ doc.filename.split('_', 2)[-1] }}
-                                </td>
-                                <td><small>{{ doc.uploaded_by.nombre_completo }}</small></td>
-                                <td class="text-center">
-                                    {% if current_user.rol == 'Abogado' %}
-                                    <button
-                                        class="btn btn-sm btn-outline-{{ 'success' if doc.visible_para_analista else 'secondary' }} border-0"
-                                        onclick="toggleVisibility('{{ doc.id }}', this, 'analyst')"
-                                        title="{{ 'Visible' if doc.visible_para_analista else 'Oculto' }}">
-                                        <i class="bi bi-eye{{ '' if doc.visible_para_analista else '-slash' }}"></i>
-                                    </button>
-                                    {% else %}
-                                    {% if doc.visible_para_analista %}
-                                    <span class="badge bg-success"><i class="bi bi-eye"></i></span>
-                                    {% else %}
-                                    <span class="badge bg-secondary"><i class="bi bi-eye-slash"></i></span>
-                                    {% endif %}
-                                    {% endif %}
-                                </td>
-                                <td class="text-center">
-                                    {% if current_user.rol == 'Abogado' %}
-                                    <button
-                                        class="btn btn-sm btn-outline-{{ 'primary' if doc.visible_para_cliente else 'secondary' }} border-0"
-                                        onclick="toggleVisibility('{{ doc.id }}', this, 'client')"
-                                        title="{{ 'Visible' if doc.visible_para_cliente else 'Oculto' }}">
-                                        <i class="bi bi-person{{ '-check' if doc.visible_para_cliente else '-x' }}"></i>
-                                    </button>
-                                    {% else %}
-                                    {% if doc.visible_para_cliente %}
-                                    <span class="badge bg-primary"><i class="bi bi-person-check"></i></span>
-                                    {% else %}
-                                    <span class="badge bg-secondary"><i class="bi bi-person-x"></i></span>
-                                    {% endif %}
-                                    {% endif %}
-                                </td>
-                                <td class="text-center">
-                                    <a href="{{ url_for('main.download_file', filename=doc.filename) }}"
-                                        class="btn btn-sm btn-light text-secondary">
-                                        <i class="bi bi-download"></i>
-                                    </a>
-                                </td>
-                            </tr>
-                            {% else %}
-                            <tr>
-                                <td colspan="5" class="text-center text-muted py-3">No hay documentos registrados.</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-
-                <script>
-                    function toggleVisibility(docId, btn, type) {
-                        const endpoint = type === 'analyst'
-                            ? `/document/${docId}/toggle_analyst_visibility`
-                            : `/document/${docId}/toggle_client_visibility`;
-
-                        fetch(endpoint, { method: 'POST' })
-                            .then(response => response.json())
-                            .then(data => {
-                                if (data.success) {
-                                    const icon = btn.querySelector('i');
-                                    if (type === 'analyst') {
-                                        if (data.visible) {
-                                            btn.classList.replace('btn-outline-secondary', 'btn-outline-success');
-                                            icon.className = 'bi bi-eye';
-                                        } else {
-                                            btn.classList.replace('btn-outline-success', 'btn-outline-secondary');
-                                            icon.className = 'bi bi-eye-slash';
-                                        }
-                                    } else {
-                                        if (data.visible) {
-                                            btn.classList.replace('btn-outline-secondary', 'btn-outline-primary');
-                                            icon.className = 'bi bi-person-check';
-                                        } else {
-                                            btn.classList.replace('btn-outline-primary', 'btn-outline-secondary');
-                                            icon.className = 'bi bi-person-x';
-                                        }
-                                    }
-                                } else {
-                                    alert('Error al actualizar visibilidad');
-                                }
-                            })
-                            .catch(error => console.error('Error:', error));
-                    }
-                </script>
-            </div>
-        </div>
-
-        <!-- Financial Information Section -->
-        <div class="card shadow-sm mb-4">
-            <div class="card-header bg-warning text-dark">
-                <h5 class="mb-0">Información Financiera y Análisis</h5>
-            </div>
-            <div class="card-body">
-                <!-- Add Obligation Form (Visible to All Authorized Roles) -->
-                <h6 class="mb-3">Agregar Nueva Obligación</h6>
-                <form action="{{ url_for('main.add_financial_obligation', client_id=client.id) }}" method="POST"
-                    class="row g-3 mb-4 align-items-end">
-                    <div class="col-md-3">
-                        <label class="form-label">Entidad</label>
-                        <input type="text" class="form-control" name="entidad" required>
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label">Estado de la Deuda</label>
-                        <select class="form-select" name="estado" required>
-                            <option value="" selected disabled>Seleccionar...</option>
-                            <option value="Al día">Al día</option>
-                            <option value="Mora">Mora</option>
-                            <option value="Castigada">Castigada</option>
-                            <option value="Reportado">Reportado</option>
-                            <option value="Juridico">Jurídico</option>
-                            <option value="Dudoso recaudo">Dudoso recaudo</option>
-                            <option value="Recuperado">Recuperado</option>
-                            <option value="Penalizado">Penalizado</option>
-                            <option value="Comparendos">Comparendos</option>
-                            <option value="Negociación">Negociación</option>
-                        </select>
-                    </div>
-                    <div class="col-md-2">
-                        <label class="form-label">Valor</label>
-                        <input type="number" step="0.01" class="form-control" name="valor" required>
-                    </div>
-                    <div class="col-md-2">
-                        <label class="form-label">Estado con Nosotros</label>
-                        <select class="form-select" name="estado_legal" required>
-                            <option value="Sin Iniciar">Sin Iniciar</option>
-                            <option value="Derecho de aclaración">Derecho de aclaración</option>
-                            <option value="Refutación de pruebas">Refutación de pruebas</option>
-                            <option value="Derecho de petición">Derecho de petición</option>
-                            <option value="Fallo al derecho">Fallo al derecho</option>
-                            <option value="Refutación a ese fallo">Refutación a ese fallo</option>
-                            <option value="Solicitud de reposición">Solicitud de reposición</option>
-                            <option value="Queja superintendencia">Queja superintendencia</option>
-                            <option value="Queja defensoría">Queja defensoría</option>
-                            <option value="Tutelas fallo">Tutelas fallo</option>
-                            <option value="Tutela">Tutela</option>
-                            <option value="Demanda juzgado">Demanda juzgado</option>
-                            <option value="Demanda a la SIC">Demanda a la SIC</option>
-                            <option value="Negociación en curso">Negociación en curso</option>
-                            <option value="Negociación entregada">Negociación entregada</option>
-                            <option value="Negociación incumplida por el cliente">Negociación incumplida por el cliente
-                            </option>
-                            <option value="Finalizado">Finalizado</option>
-                        </select>
-                    </div>
-                    <div class="col-md-2">
-                        <button type="submit" class="btn btn-primary w-100">Agregar</button>
-                    </div>
-                </form>
-
-                <hr>
-
-                <!-- Obligations Table -->
-                <h6 class="mb-3">Obligaciones Registradas</h6>
-                <div class="table-responsive">
-                    <table class="table table-bordered table-hover">
-                        <thead class="table-light">
-                            <tr>
-                                <th>Entidad</th>
-                                <th>Estado Deuda</th>
-                                <th>Valor</th>
-                                <th style="width: 200px;">Estado con Nosotros</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for obligation in client.financial_obligations %}
-                            <tr>
-                                <td>{{ obligation.entidad }}</td>
-                                <td>{{ obligation.estado }}</td>
-                                <td>${{ "{:,.0f}".format(obligation.valor) }}</td>
-                                <td>
-                                    <form
-                                        action="{{ url_for('main.update_legal_status', obligation_id=obligation.id) }}"
-                                        method="POST">
-                                        <select class="form-select form-select-sm" name="estado_legal"
-                                            onchange="this.form.submit()">
-                                            <option value="Sin Iniciar" {% if obligation.estado_legal=='Sin Iniciar'
-                                                %}selected{% endif %}>Sin Iniciar</option>
-                                            <option value="Derecho de aclaración" {% if
-                                                obligation.estado_legal=='Derecho de aclaración' %}selected{% endif %}>
-                                                Derecho de aclaración</option>
-                                            <option value="Refutación de pruebas" {% if
-                                                obligation.estado_legal=='Refutación de pruebas' %}selected{% endif %}>
-                                                Refutación de pruebas</option>
-                                            <option value="Derecho de petición" {% if
-                                                obligation.estado_legal=='Derecho de petición' %}selected{% endif %}>
-                                                Derecho de petición</option>
-                                            <option value="Fallo al derecho" {% if
-                                                obligation.estado_legal=='Fallo al derecho' %}selected{% endif %}>Fallo
-                                                al derecho</option>
-                                            <option value="Refutación a ese fallo" {% if
-                                                obligation.estado_legal=='Refutación a ese fallo' %}selected{% endif %}>
-                                                Refutación a ese fallo</option>
-                                            <option value="Solicitud de reposición" {% if
-                                                obligation.estado_legal=='Solicitud de reposición' %}selected{% endif
-                                                %}>Solicitud de reposición</option>
-                                            <option value="Queja superintendencia" {% if
-                                                obligation.estado_legal=='Queja superintendencia' %}selected{% endif %}>
-                                                Queja superintendencia</option>
-                                            <option value="Queja defensoría" {% if
-                                                obligation.estado_legal=='Queja defensoría' %}selected{% endif %}>Queja
-                                                defensoría</option>
-                                            <option value="Tutelas fallo" {% if obligation.estado_legal=='Tutelas fallo'
-                                                %}selected{% endif %}>Tutelas fallo</option>
-                                            <option value="Tutela" {% if obligation.estado_legal=='Tutela' %}selected{%
-                                                endif %}>Tutela</option>
-                                            <option value="Demanda juzgado" {% if
-                                                obligation.estado_legal=='Demanda juzgado' %}selected{% endif %}>Demanda
-                                                juzgado</option>
-                                            <option value="Demanda a la SIC" {% if
-                                                obligation.estado_legal=='Demanda a la SIC' %}selected{% endif %}>
-                                                Demanda a la SIC</option>
-                                            <option value="Negociación en curso" {% if
-                                                obligation.estado_legal=='Negociación en curso' %}selected{% endif %}>
-                                                Negociación en curso</option>
-                                            <option value="Negociación entregada" {% if
-                                                obligation.estado_legal=='Negociación entregada' %}selected{% endif %}>
-                                                Negociación entregada</option>
-                                            <option value="Negociación incumplida por el cliente" {% if
-                                                obligation.estado_legal=='Negociación incumplida por el cliente'
-                                                %}selected{% endif %}>Negociación incumplida por el cliente</option>
-                                            <option value="Finalizado" {% if obligation.estado_legal=='Finalizado'
-                                                %}selected{% endif %}>Finalizado</option>
-                                        </select>
-                                    </form>
-                                </td>
-                            </tr>
-                            {% else %}
-                            <tr>
-                                <td colspan="4" class="text-center text-muted">No hay obligaciones registradas todavía.
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-
-                <hr>
-
-                <!-- Analysis Conclusion -->
-                <h6 class="mb-3">Conclusión del Análisis</h6>
-                {% if current_user.rol in ['Analista', 'Abogado'] %}
-                <form action="{{ url_for('main.update_analysis', client_id=client.id) }}" method="POST">
-                    <div class="mb-3">
-                        <textarea class="form-control" name="conclusion_analisis" rows="3"
-                            placeholder="Escribe aquí el análisis del caso...">{{ client.conclusion_analisis or '' }}</textarea>
-                    </div>
-                    <button type="submit" class="btn btn-secondary">Guardar Análisis</button>
-                </form>
-                {% else %}
-                <div class="p-3 bg-light border rounded">
-                    {{ client.conclusion_analisis or 'Sin análisis registrado.' }}
+                        <button type="submit" class="btn btn-dark btn-sm w-100">Actualizar</button>
+                    </form>
                 </div>
                 {% endif %}
+
+                {% if current_user.rol == 'Admin' %}
+                <div class="dashboard-card p-3">
+                    <h6 class="fw-bold border-bottom pb-2 mb-3">Acceso Portal</h6>
+                    {% if client.login_user_id %}
+                    <div class="alert alert-success py-2 px-3 small mb-0">
+                        <i class="bi bi-check-circle me-1"></i> Habilitado<br>
+                        <strong>{{ client.login_user.email }}</strong>
+                    </div>
+                    {% else %}
+                    <form action="{{ url_for('admin.generate_client_access', client_id=client.id) }}" method="POST">
+                        <button type="submit" class="btn btn-warning btn-sm w-100">Crear Acceso</button>
+                    </form>
+                    {% endif %}
+                </div>
+                {% endif %}
+
+                <!-- Analyst/Aliado Send to Lawyer -->
+                {% if (current_user.rol == 'Analista' or current_user.rol == 'Aliado') and client.estado in ['Nuevo',
+                'Informacion_Incompleta'] %}
+                <div class="dashboard-card p-3 bg-warning bg-opacity-10">
+                    <h6 class="fw-bold">Próximo Paso</h6>
+                    <p class="small text-muted mb-2">Enviar a revisión legal una vez completado.</p>
+                    <form
+                        action="{{ url_for('analyst.send_to_lawyer' if current_user.rol == 'Analista' else 'aliados.send_to_lawyer', client_id=client.id) }}"
+                        method="POST">
+                        <button type="submit" class="btn btn-dark btn-sm w-100">Enviar a Abogado</button>
+                    </form>
+                </div>
+                {% endif %}
+
             </div>
         </div>
 
-        <!-- Payments and Contracting Section -->
-        <div class="card shadow-sm mb-4">
-            <div class="card-header bg-success text-white">
-                <h5 class="mb-0">PAGOS</h5>
-            </div>
-            <div class="card-body">
-                {% set is_analyst = current_user.rol == 'Analista' %}
+        <!-- RIGHT COLUMN: Main Content Tabs -->
+        <div class="col-lg-9">
+            <div class="dashboard-card">
+                <div class="card-header-tabs">
+                    <ul class="nav nav-tabs card-header-tabs" id="clientTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="overview-tab" data-bs-toggle="tab"
+                                data-bs-target="#overview" type="button" role="tab">Resumen & Análisis</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="financial-tab" data-bs-toggle="tab" data-bs-target="#financial"
+                                type="button" role="tab">Financiero</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="docs-tab" data-bs-toggle="tab" data-bs-target="#docs"
+                                type="button" role="tab">Documentos</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="chat-tab" data-bs-toggle="tab" data-bs-target="#chat"
+                                type="button" role="tab">Comunicación</button>
+                        </li>
+                    </ul>
+                </div>
 
-                <!-- Diagnosis Section -->
-                <h6 class="mb-3">Diagnóstico Inicial</h6>
-                <form action="{{ url_for('lawyer.save_payment_diagnosis', client_id=client.id) }}" method="POST"
-                    class="mb-4">
-                    <fieldset {% if is_analyst %}disabled{% endif %}>
-                        <div class="row g-3 align-items-end">
-                            <div class="col-md-4">
-                                <label class="form-label">Valor Diagnóstico</label>
-                                <div class="input-group">
-                                    <span class="input-group-text">$</span>
-                                    <input type="number" step="0.01" class="form-control" name="valor"
-                                        value="{{ client.payment_diagnosis.valor if client.payment_diagnosis else '' }}">
+                <div class="card-body p-4">
+                    <div class="tab-content" id="clientTabsContent">
+
+                        <!-- TAB 1: OVERVIEW & ANALYSIS -->
+                        <div class="tab-pane fade show active" id="overview" role="tabpanel">
+                            <div class="row g-4">
+                                <div class="col-md-12">
+                                    <h5 class="fw-bold text-dark mb-3">Motivo de Consulta</h5>
+                                    <div class="p-3 bg-light rounded border-start border-4 border-info">
+                                        {{ client.motivo_consulta }}
+                                    </div>
+                                </div>
+                                <div class="col-md-12">
+                                    <h5 class="fw-bold text-dark mb-3 mt-2">Conclusión del Análisis</h5>
+                                    {% if current_user.rol in ['Analista', 'Abogado'] %}
+                                    <form action="{{ url_for('main.update_analysis', client_id=client.id) }}"
+                                        method="POST">
+                                        <div class="form-floating mb-3">
+                                            <textarea class="form-control" name="conclusion_analisis"
+                                                id="conclusionInput"
+                                                style="height: 120px">{{ client.conclusion_analisis or '' }}</textarea>
+                                            <label for="conclusionInput">Escribe el análisis profesional...</label>
+                                        </div>
+                                        <div class="text-end">
+                                            <button type="submit" class="btn btn-primary btn-sm"><i
+                                                    class="bi bi-save"></i> Guardar Análisis</button>
+                                        </div>
+                                    </form>
+                                    {% else %}
+                                    <div class="p-3 bg-light rounded">
+                                        {{ client.conclusion_analisis or 'Sin análisis registrado.' }}
+                                    </div>
+                                    {% endif %}
                                 </div>
                             </div>
-                            <div class="col-md-3">
-                                <label class="form-label">Fecha de Pago</label>
-                                <input type="date" class="form-control" name="fecha_pago"
-                                    value="{{ client.payment_diagnosis.fecha_pago if client.payment_diagnosis else '' }}">
+                        </div>
+
+                        <!-- TAB 2: FINANCIALS -->
+                        <div class="tab-pane fade" id="financial" role="tabpanel">
+                            {% set is_analyst = current_user.rol == 'Analista' %}
+
+                            <!-- Obligations -->
+                            <div class="d-flex justify-content-between align-items-center mb-4">
+                                <h5 class="fw-bold mb-0">Obligaciones Financieras</h5>
+                                <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="collapse"
+                                    data-bs-target="#addObligationForm"><i class="bi bi-plus-lg"></i> Agregar</button>
                             </div>
-                            <div class="col-md-3">
-                                <label class="form-label">Método de Pago</label>
-                                <select class="form-select" name="metodo_pago">
-                                    <option value="" selected disabled>Seleccionar...</option>
-                                    {% for metodo in ['Nequi', 'Daviplata', 'Bancolombia', 'Link de pago', 'Efectivo']
-                                    %}
-                                    <option value="{{ metodo }}" {% if client.payment_diagnosis and
-                                        client.payment_diagnosis.metodo_pago==metodo %}selected{% endif %}>
-                                        {{ metodo }}
-                                    </option>
+
+                            <div class="collapse mb-4" id="addObligationForm">
+                                <div class="card card-body bg-light border-0">
+                                    <form action="{{ url_for('main.add_financial_obligation', client_id=client.id) }}"
+                                        method="POST" class="row g-3">
+                                        <div class="col-md-3">
+                                            <label class="form-label small fw-bold">Entidad</label>
+                                            <input type="text" class="form-control form-control-sm" name="entidad"
+                                                required>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label class="form-label small fw-bold">Estado Deuda</label>
+                                            <select class="form-select form-select-sm" name="estado" required>
+                                                <option value="Al día">Al día</option>
+                                                <option value="Mora">Mora</option>
+                                                <option value="Castigada">Castigada</option>
+                                                <option value="Reportado">Reportado</option>
+                                                <option value="Juridico">Jurídico</option>
+                                                <option value="Dudoso recaudo">Dudoso recaudo</option>
+                                                <option value="Recuperado">Recuperado</option>
+                                                <option value="Penalizado">Penalizado</option>
+                                                <option value="Comparendos">Comparendos</option>
+                                                <option value="Negociación">Negociación</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-2">
+                                            <label class="form-label small fw-bold">Valor</label>
+                                            <input type="number" class="form-control form-control-sm" name="valor"
+                                                required>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <button type="submit"
+                                                class="btn btn-primary btn-sm mt-4 w-100">Guardar</button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+
+                            <div class="row g-3 mb-5">
+                                {% for obligation in client.financial_obligations %}
+                                <div class="col-md-6">
+                                    <div class="border rounded p-3 position-relative h-100">
+                                        <div class="d-flex justify-content-between">
+                                            <span class="fw-bold text-primary">{{ obligation.entidad }}</span>
+                                            <span class="badge bg-light text-dark border">{{ obligation.estado }}</span>
+                                        </div>
+                                        <h5 class="mt-2 mb-3">${{ "{:,.0f}".format(obligation.valor) }}</h5>
+
+                                        <div class="mb-1 small fw-bold">Gestión Legal:</div>
+                                        <form
+                                            action="{{ url_for('main.update_legal_status', obligation_id=obligation.id) }}"
+                                            method="POST">
+                                            <select class="form-select form-select-sm" name="estado_legal"
+                                                onchange="this.form.submit()">
+                                                <option value="Sin Iniciar" {% if obligation.estado_legal=='Sin Iniciar'
+                                                    %}selected{% endif %}>Sin Iniciar</option>
+                                                <option value="Derecho de aclaración" {% if
+                                                    obligation.estado_legal=='Derecho de aclaración' %}selected{% endif
+                                                    %}>Derecho de aclaración</option>
+                                                <option value="Refutación de pruebas" {% if
+                                                    obligation.estado_legal=='Refutación de pruebas' %}selected{% endif
+                                                    %}>Refutación de pruebas</option>
+                                                <option value="Derecho de petición" {% if
+                                                    obligation.estado_legal=='Derecho de petición' %}selected{% endif
+                                                    %}>Derecho de petición</option>
+                                                <option value="Fallo al derecho" {% if
+                                                    obligation.estado_legal=='Fallo al derecho' %}selected{% endif %}>
+                                                    Fallo al derecho</option>
+                                                <option value="Refutación a ese fallo" {% if
+                                                    obligation.estado_legal=='Refutación a ese fallo' %}selected{% endif
+                                                    %}>Refutación a ese fallo</option>
+                                                <option value="Solicitud de reposición" {% if
+                                                    obligation.estado_legal=='Solicitud de reposición' %}selected{%
+                                                    endif %}>Solicitud de reposición</option>
+                                                <option value="Queja superintendencia" {% if
+                                                    obligation.estado_legal=='Queja superintendencia' %}selected{% endif
+                                                    %}>Queja superintendencia</option>
+                                                <option value="Queja defensoría" {% if
+                                                    obligation.estado_legal=='Queja defensoría' %}selected{% endif %}>
+                                                    Queja defensoría</option>
+                                                <option value="Tutelas fallo" {% if
+                                                    obligation.estado_legal=='Tutelas fallo' %}selected{% endif %}>
+                                                    Tutelas fallo</option>
+                                                <option value="Tutela" {% if obligation.estado_legal=='Tutela'
+                                                    %}selected{% endif %}>Tutela</option>
+                                                <option value="Demanda juzgado" {% if
+                                                    obligation.estado_legal=='Demanda juzgado' %}selected{% endif %}>
+                                                    Demanda juzgado</option>
+                                                <option value="Demanda a la SIC" {% if
+                                                    obligation.estado_legal=='Demanda a la SIC' %}selected{% endif %}>
+                                                    Demanda a la SIC</option>
+                                                <option value="Negociación en curso" {% if
+                                                    obligation.estado_legal=='Negociación en curso' %}selected{% endif
+                                                    %}>Negociación en curso</option>
+                                                <option value="Negociación entregada" {% if
+                                                    obligation.estado_legal=='Negociación entregada' %}selected{% endif
+                                                    %}>Negociación entregada</option>
+                                                <option value="Negociación incumplida por el cliente" {% if
+                                                    obligation.estado_legal=='Negociación incumplida por el cliente'
+                                                    %}selected{% endif %}>Negociación incumplida por el cliente</option>
+                                                <option value="Finalizado" {% if obligation.estado_legal=='Finalizado'
+                                                    %}selected{% endif %}>Finalizado</option>
+                                            </select>
+                                        </form>
+                                    </div>
+                                </div>
+                                {% else %}
+                                <div class="col-12">
+                                    <p class="text-muted text-center py-3">No hay obligaciones registradas.</p>
+                                </div>
+                                {% endfor %}
+                            </div>
+
+                            <hr>
+
+                            <!-- Payment Diagnosis -->
+                            <h5 class="fw-bold mb-3">Diagnóstico Inicial</h5>
+                            <form action="{{ url_for('lawyer.save_payment_diagnosis', client_id=client.id) }}"
+                                method="POST" class="mb-5">
+                                <fieldset {% if is_analyst %}disabled{% endif %}>
+                                    <div class="row g-3 align-items-end">
+                                        <div class="col-md-4">
+                                            <label class="form-label small">Valor</label>
+                                            <div class="input-group input-group-sm">
+                                                <span class="input-group-text">$</span>
+                                                <input type="number" step="0.01" class="form-control" name="valor"
+                                                    value="{{ client.payment_diagnosis.valor if client.payment_diagnosis else '' }}">
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label class="form-label small">Fecha</label>
+                                            <input type="date" class="form-control form-control-sm" name="fecha_pago"
+                                                value="{{ client.payment_diagnosis.fecha_pago if client.payment_diagnosis else '' }}">
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label class="form-label small">Método</label>
+                                            <select class="form-select form-select-sm" name="metodo_pago">
+                                                <option value="" selected disabled>-</option>
+                                                {% for metodo in ['Nequi', 'Daviplata', 'Bancolombia', 'Link de pago',
+                                                'Efectivo'] %}
+                                                <option value="{{ metodo }}" {% if client.payment_diagnosis and
+                                                    client.payment_diagnosis.metodo_pago==metodo %}selected{% endif %}>
+                                                    {{ metodo }}</option>
+                                                {% endfor %}
+                                            </select>
+                                        </div>
+                                        <div class="col-md-2">
+                                            {% if not is_analyst %}
+                                            <button type="submit" class="btn btn-primary btn-sm w-100">Guardar</button>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    <div class="form-check mt-2 small">
+                                        <input class="form-check-input" type="checkbox" name="verificado"
+                                            id="checkVerificado" {% if client.payment_diagnosis and
+                                            client.payment_diagnosis.verificado %}checked{% endif %}>
+                                        <label class="form-check-label" for="checkVerificado">Pago Verificado</label>
+                                    </div>
+                                </fieldset>
+                            </form>
+
+                            <!-- Contract -->
+                            <h5 class="fw-bold mb-3">Contrato (6 Cuotas)</h5>
+                            <form action="{{ url_for('lawyer.save_contract_details', client_id=client.id) }}"
+                                method="POST" id="contractForm">
+                                <fieldset {% if is_analyst %}disabled{% endif %}>
+                                    <div
+                                        class="bg-light p-3 rounded mb-3 d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <label class="small fw-bold">Valor Total:</label>
+                                            <div class="input-group input-group-sm">
+                                                <span class="input-group-text border-0 bg-transparent">$</span>
+                                                <input type="number"
+                                                    class="form-control border-0 bg-transparent fw-bold"
+                                                    name="valor_total" id="valorTotalContract"
+                                                    value="{{ client.payment_contract.valor_total if client.payment_contract else '' }}"
+                                                    style="width: 120px;">
+                                            </div>
+                                        </div>
+                                        <div class="text-end">
+                                            <small class="text-muted d-block">Recaudo</small>
+                                            <h4 class="text-success m-0" id="porcentajeDisplay">0%</h4>
+                                            <input type="hidden" name="numero_cuotas" value="6">
+                                        </div>
+                                    </div>
+
+                                    <div id="staticInstallmentsContainer">
+                                        {% set installments_map = {} %}
+                                        {% if client.payment_contract and client.payment_contract.installments %}
+                                        {% for inst in client.payment_contract.installments %}
+                                        {% set _ = installments_map.update({inst.numero_cuota: inst}) %}
+                                        {% endfor %}
+                                        {% endif %}
+
+                                        <div class="table-responsive">
+                                            <table class="table table-sm align-middle">
+                                                <thead>
+                                                    <tr class="text-muted small">
+                                                        <th>Cuota</th>
+                                                        <th>Valor</th>
+                                                        <th>Fecha</th>
+                                                        <th>Estado</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {% for i in range(1, 7) %}
+                                                    {% set inst = installments_map.get(i) %}
+                                                    <tr>
+                                                        <td style="width: 50px;"><span class="badge bg-secondary">{{ i
+                                                                }}</span></td>
+                                                        <td><input type="number" class="form-control form-control-sm"
+                                                                name="cuota_{{ i }}_valor"
+                                                                value="{{ inst.valor if inst else '' }}"
+                                                                placeholder="$"></td>
+                                                        <td><input type="date" class="form-control form-control-sm"
+                                                                name="cuota_{{ i }}_fecha"
+                                                                value="{{ inst.fecha_vencimiento if inst and inst.fecha_vencimiento else '' }}">
+                                                        </td>
+                                                        <td>
+                                                            <select class="form-select form-select-sm"
+                                                                name="cuota_{{ i }}_estado">
+                                                                {% set estado = inst.estado if inst else '' %}
+                                                                <option value="" {% if not estado %}selected{% endif %}>
+                                                                    -</option>
+                                                                <option value="Pendiente" {% if estado=='Pendiente'
+                                                                    %}selected{% endif %}>Pendiente</option>
+                                                                <option value="Pagada" {% if estado=='Pagada'
+                                                                    %}selected{% endif %}>Pagada</option>
+                                                                <option value="En Mora" {% if estado=='En Mora'
+                                                                    %}selected{% endif %}>Mora</option>
+                                                                <option value="Anulada" {% if estado=='Anulada'
+                                                                    %}selected{% endif %}>Anulada</option>
+                                                            </select>
+                                                        </td>
+                                                    </tr>
+                                                    {% endfor %}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+
+                                    {% if not is_analyst %}
+                                    <div class="text-end mt-3">
+                                        <button type="submit" class="btn btn-success"><i class="bi bi-check-lg"></i>
+                                            Guardar Cambios</button>
+                                    </div>
+                                    {% endif %}
+                                </fieldset>
+                            </form>
+
+                        </div>
+
+                        <!-- TAB 3: DOCUMENTS -->
+                        <div class="tab-pane fade" id="docs" role="tabpanel">
+                            <div class="row mb-4">
+                                <div class="col-md-12">
+                                    <div class="p-4 border rounded border-dashed text-center bg-light">
+                                        <h6 class="text-muted"><i
+                                                class="bi bi-cloud-upload display-6 d-block mb-3"></i>Subir Nuevo
+                                            Archivo</h6>
+                                        <form action="{{ url_for('main.upload_file', client_id=client.id) }}"
+                                            method="POST" enctype="multipart/form-data"
+                                            class="d-inline-block text-start" style="max-width: 400px;">
+                                            <div class="input-group mb-2">
+                                                <input type="file" class="form-control" name="file" required>
+                                                <button class="btn btn-primary" type="submit">Subir</button>
+                                            </div>
+                                            {% if current_user.rol == 'Abogado' %}
+                                            <div class="d-flex gap-3 justify-content-center">
+                                                <div class="form-check form-check-inline">
+                                                    <input class="form-check-input" type="checkbox"
+                                                        name="visible_para_analista" id="checkA">
+                                                    <label class="form-check-label small" for="checkA">Ver
+                                                        Analista</label>
+                                                </div>
+                                                <div class="form-check form-check-inline">
+                                                    <input class="form-check-input" type="checkbox"
+                                                        name="visible_para_cliente" id="checkC">
+                                                    <label class="form-check-label small" for="checkC">Ver
+                                                        Cliente</label>
+                                                </div>
+                                            </div>
+                                            {% endif %}
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="list-group">
+                                {% for doc in documents %}
+                                <div class="list-group-item d-flex justify-content-between align-items-center">
+                                    <div class="d-flex align-items-center">
+                                        <div class="bg-light p-2 rounded me-3 text-danger"><i
+                                                class="bi bi-file-earmark-pdf fs-5"></i></div>
+                                        <div>
+                                            <div class="fw-bold text-truncate" style="max-width: 250px;">{{
+                                                doc.filename.split('_', 2)[-1] }}</div>
+                                            <div class="small text-muted">Por: {{ doc.uploaded_by.nombre_completo }} |
+                                                {{ doc.created_at.strftime('%Y-%m-%d') }}</div>
+                                        </div>
+                                    </div>
+                                    <div class="d-flex align-items-center gap-2">
+                                        {% if current_user.rol == 'Abogado' %}
+                                        <button
+                                            class="btn btn-sm btn-outline-{{ 'success' if doc.visible_para_analista else 'secondary' }} border-0"
+                                            onclick="toggleVisibility('{{ doc.id }}', this, 'analyst')"
+                                            title="Visibilidad Analista"><i class="bi bi-eye"></i></button>
+                                        <button
+                                            class="btn btn-sm btn-outline-{{ 'primary' if doc.visible_para_cliente else 'secondary' }} border-0"
+                                            onclick="toggleVisibility('{{ doc.id }}', this, 'client')"
+                                            title="Visibilidad Cliente"><i class="bi bi-person"></i></button>
+                                        {% endif %}
+                                        <a href="{{ url_for('main.download_file', filename=doc.filename) }}"
+                                            class="btn btn-light btn-sm"><i class="bi bi-download"></i></a>
+                                    </div>
+                                </div>
+                                {% else %}
+                                <div class="text-center text-muted py-5">No hay documentos guardados.</div>
+                                {% endfor %}
+                            </div>
+                        </div>
+
+                        <!-- TAB 4: CHAT -->
+                        <div class="tab-pane fade" id="chat" role="tabpanel">
+                            <div class="chat-container">
+                                <div class="chat-messages mb-3 border" id="chatMessages">
+                                    {% for msg in messages %}
+                                    {% set is_me = msg.sender_id == current_user.id %}
+                                    <div
+                                        class="d-flex {{ 'justify-content-end' if is_me else 'justify-content-start' }} mb-2">
+                                        <div class="chat-bubble {{ 'chat-me' if is_me else 'chat-other' }}">
+                                            <div class="fw-bold small mb-1">{{ 'Yo' if is_me else
+                                                msg.sender.nombre_completo }}</div>
+                                            {{ msg.content }}
+                                            <div class="text-end" style="font-size: 0.7rem; opacity: 0.6;">{{
+                                                msg.timestamp.strftime('%d/%m %H:%M') }}</div>
+                                        </div>
+                                    </div>
+                                    {% else %}
+                                    <div class="text-center text-muted mt-5">No hay mensajes en el historial.</div>
                                     {% endfor %}
-                                </select>
-                            </div>
-                            <div class="col-md-2">
-                                <div class="form-check mb-2">
-                                    <input class="form-check-input" type="checkbox" name="verificado"
-                                        id="checkVerificado" {% if client.payment_diagnosis and
-                                        client.payment_diagnosis.verificado %}checked{% endif %}>
-                                    <label class="form-check-label" for="checkVerificado">
-                                        Pago Verificado
-                                    </label>
                                 </div>
-                            </div>
-                        </div>
-                        {% if not is_analyst %}
-                        <div class="mt-2 text-end">
-                            <button type="submit" class="btn btn-sm btn-primary">Guardar Diagnóstico</button>
-                        </div>
-                        {% endif %}
-                    </fieldset>
-                </form>
-
-                <hr>
-
-                <!-- Contract Section -->
-                <!-- Contract Section -->
-                <h6 class="mb-3">Contrato y Cuotas (Fijo: 6 Cuotas)</h6>
-                <form action="{{ url_for('lawyer.save_contract_details', client_id=client.id) }}" method="POST"
-                    id="contractForm">
-                    <fieldset {% if is_analyst %}disabled{% endif %}>
-
-                        <!-- Header with Total -->
-                        <div class="row g-3 mb-3 p-3 bg-light rounded border">
-                            <div class="col-md-6">
-                                <label class="form-label fw-bold">Valor Total Contrato</label>
-                                <div class="input-group">
-                                    <span class="input-group-text">$</span>
-                                    <input type="number" step="0.01" class="form-control" name="valor_total"
-                                        id="valorTotalContract"
-                                        value="{{ client.payment_contract.valor_total if client.payment_contract else '' }}"
-                                        required>
-                                </div>
-                            </div>
-                            <!-- Swapped "Number of Quotas" for "Percentage" as requested -->
-                            <div class="col-md-6">
-                                <label class="form-label fw-bold">Porcentaje Pagado</label>
-                                <div class="input-group">
-                                    <input type="text" class="form-control text-end bg-white" id="porcentajePagado"
-                                        value="0%" readonly style="font-weight: bold; color: green;">
-                                    <span class="input-group-text">%</span>
-                                </div>
-                                <input type="hidden" name="numero_cuotas" value="6">
+                                <form action="{{ url_for('chat.send_message', client_id=client.id) }}" method="POST">
+                                    <div class="input-group">
+                                        <input type="text" class="form-control" name="content"
+                                            placeholder="Escribe un mensaje..." required autocomplete="off">
+                                        <button class="btn btn-dark" type="submit"><i class="bi bi-send"></i></button>
+                                    </div>
+                                </form>
                             </div>
                         </div>
 
-                        <!-- Static 6 Installment Rows -->
-                        <div id="staticInstallmentsContainer">
-                            {% set installments_map = {} %}
-                            {% if client.payment_contract and client.payment_contract.installments %}
-                            {% for inst in client.payment_contract.installments %}
-                            {% set _ = installments_map.update({inst.numero_cuota: inst}) %}
-                            {% endfor %}
-                            {% endif %}
-
-                            {% for i in range(1, 7) %}
-                            {% set inst = installments_map.get(i) %}
-                            <div class="row g-2 mb-2 align-items-center p-2 border-bottom">
-                                <div class="col-auto" style="width: 80px;">
-                                    <span class="badge bg-secondary w-100">Cuota {{ i }}</span>
-                                </div>
-                                <div class="col">
-                                    <input type="number" step="0.01" class="form-control form-control-sm"
-                                        name="cuota_{{ i }}_valor" placeholder="Valor"
-                                        value="{{ inst.valor if inst else '' }}">
-                                </div>
-                                <div class="col">
-                                    <input type="date" class="form-control form-control-sm" name="cuota_{{ i }}_fecha"
-                                        value="{{ inst.fecha_vencimiento if inst and inst.fecha_vencimiento else '' }}">
-                                </div>
-                                <div class="col">
-                                    <select class="form-select form-select-sm" name="cuota_{{ i }}_metodo">
-                                        {% set metodo = inst.metodo_pago if inst else '' %}
-                                        <option value="" disabled {% if not metodo %}selected{% endif %}>Método</option>
-                                        <option value="Nequi" {% if metodo=='Nequi' %}selected{% endif %}>Nequi</option>
-                                        <option value="Daviplata" {% if metodo=='Daviplata' %}selected{% endif %}>
-                                            Daviplata</option>
-                                        <option value="Bancolombia" {% if metodo=='Bancolombia' %}selected{% endif %}>
-                                            Bancolombia</option>
-                                        <option value="Link de pago" {% if metodo=='Link de pago' %}selected{% endif %}>
-                                            Link de pago</option>
-                                        <option value="Efectivo" {% if metodo=='Efectivo' %}selected{% endif %}>Efectivo
-                                        </option>
-                                    </select>
-                                </div>
-                                <div class="col">
-                                    <select class="form-select form-select-sm" name="cuota_{{ i }}_estado">
-                                        {% set estado = inst.estado if inst else '' %}
-                                        <option value="" {% if not estado %}selected{% endif %}>Estado (Seleccionar)
-                                        </option>
-                                        <option value="Pendiente" {% if estado=='Pendiente' %}selected{% endif %}>
-                                            Pendiente</option>
-                                        <option value="Pagada" {% if estado=='Pagada' %}selected{% endif %}>Pagada
-                                        </option>
-                                        <option value="En Mora" {% if estado=='En Mora' %}selected{% endif %}>En Mora
-                                        </option>
-                                    </select>
-                                </div>
-                            </div>
-                            {% endfor %}
-                        </div>
-
-                        {% if not is_analyst %}
-                        <div class="mt-3 text-end">
-                            <button type="submit" class="btn btn-primary">Guardar Contrato y Cuotas</button>
-                        </div>
-                        {% endif %}
-                    </fieldset>
-                </form>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
-    {% endblock %}
+</div>
 
-    {% block content_end %}
-    {% endblock %}
+<!-- Modal Edit Profile -->
+<div class="modal fade" id="editGeneralInfoModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Editar Información</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{{ url_for('main.edit_client', client_id=client.id) }}" method="POST">
+                <div class="modal-body p-4">
+                    <div class="mb-3">
+                        <label class="form-label">Nombre</label>
+                        <input type="text" class="form-control" name="nombre" value="{{ client.nombre }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Teléfono</label>
+                        <input type="text" class="form-control" name="telefono" value="{{ client.telefono }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Email</label>
+                        <input type="email" class="form-control" name="email" value="{{ client.email }}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">N° Contrato</label>
+                        <input type="text" class="form-control" name="contract_number"
+                            value="{{ client.contract_number or '' }}">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 
-    {% block scripts %}
-    <script>
-        document.addEventListener('DOMContentLoaded', function () {
-            const valorTotalInput = document.getElementById('valorTotalContract');
-            const porcentajeOutput = document.getElementById('porcentajePagado');
-            // Container for the static 6 rows
-            const container = document.getElementById('staticInstallmentsContainer');
+<script>
+    // JS for Visibility Toggle & Contract Calc (Simplified)
+    document.addEventListener('DOMContentLoaded', function () {
+        // --- 1. Chat Scroll ---
+        var chatBox = document.getElementById('chatMessages');
+        if (chatBox) chatBox.scrollTop = chatBox.scrollHeight;
 
-            function calcularPorcentaje() {
-                const totalContrato = parseFloat(valorTotalInput ? valorTotalInput.value : 0) || 0;
+        // --- 2. Contract Percentage Calc ---
+        const valorTotalInput = document.getElementById('valorTotalContract');
+        const percentageDisplay = document.getElementById('porcentajeDisplay');
+        const container = document.getElementById('staticInstallmentsContainer');
 
-                if (totalContrato <= 0) {
-                    if (porcentajeOutput) porcentajeOutput.value = "0%";
-                    return;
+        function calculate() {
+            if (!valorTotalInput || !container) return;
+            let total = parseFloat(valorTotalInput.value) || 0;
+            if (total <= 0) { percentageDisplay.innerText = "0%"; return; }
+
+            let paid = 0;
+            const inputs = container.querySelectorAll('input[name$="_valor"]');
+            inputs.forEach(input => {
+                const nameParts = input.name.split('_'); // cuota_1_valor
+                const idx = nameParts[1];
+                const stateSelect = container.querySelector(`select[name="cuota_${idx}_estado"]`);
+
+                if (stateSelect && stateSelect.value === 'Pagada') {
+                    paid += parseFloat(input.value) || 0;
                 }
+            });
 
-                let totalRecaudado = 0;
+            let pct = (paid / total) * 100;
+            percentageDisplay.innerText = pct.toFixed(0) + "%";
+            // Color code
+            percentageDisplay.className = pct >= 100 ? 'text-success m-0 fw-bold' : (pct > 0 ? 'text-primary m-0' : 'text-muted m-0');
+        }
 
-                // Iterate through the 6 static rows to sum paid amounts
-                for (let i = 1; i <= 6; i++) {
-                    // Selectors based on the static HTML naming convention: cuota_{i}_valor and cuota_{i}_estado
-                    const valInput = container ? container.querySelector(`input[name="cuota_${i}_valor"]`) : null;
-                    const stateSelect = container ? container.querySelector(`select[name="cuota_${i}_estado"]`) : null;
+        if (container) {
+            container.querySelectorAll('input, select').forEach(el => {
+                el.addEventListener('change', calculate);
+                el.addEventListener('input', calculate);
+            });
+        }
+        if (valorTotalInput) valorTotalInput.addEventListener('input', calculate);
 
-                    if (valInput && stateSelect && stateSelect.value === 'Pagada') {
-                        totalRecaudado += parseFloat(valInput.value) || 0;
+        // Init
+        calculate();
+    });
+
+    // --- 3. Toggle Visibility AJAX ---
+    function toggleVisibility(docId, btn, type) {
+        const endpoint = type === 'analyst'
+            ? `/document/${docId}/toggle_analyst_visibility`
+            : `/document/${docId}/toggle_client_visibility`;
+
+        fetch(endpoint, { method: 'POST' })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    if (type === 'analyst') {
+                        btn.classList.toggle('btn-outline-success');
+                        btn.classList.toggle('btn-outline-secondary');
+                    } else {
+                        btn.classList.toggle('btn-outline-primary');
+                        btn.classList.toggle('btn-outline-secondary');
                     }
                 }
+            });
+    }
+</script>
+<!-- Management History Note Section -->
+{% if current_user.rol in ['Analista', 'Abogado', 'Admin'] %}
+<div class="card shadow-sm mt-4 mb-4">
+    <div class="card-header bg-secondary text-white">
+        <h5 class="mb-0"><i class="bi bi-journal-text me-2"></i>Historial de Gestión</h5>
+    </div>
+    <div class="card-body">
+        <!-- Add Note Form -->
+        <form action="{{ url_for('main.add_note', client_id=client.id) }}" method="POST" class="mb-4">
+            <div class="mb-3">
+                <label for="note_content" class="form-label fw-bold">Nueva Nota / Bitácora</label>
+                <textarea class="form-control" id="note_content" name="note_content" rows="3"
+                    placeholder="Escribe aquí los detalles de la gestión, llamada o actualización..."
+                    required></textarea>
+            </div>
+            <div class="d-flex justify-content-end">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-save me-1"></i> Agregar Nota
+                </button>
+            </div>
+        </form>
 
-                const porcentaje = (totalRecaudado / totalContrato) * 100;
-                const display = Number.isInteger(porcentaje) ? porcentaje : porcentaje.toFixed(1);
-                if (porcentajeOutput) porcentajeOutput.value = display + "%";
-            }
+        <hr>
 
-            function bindCalculationEvents() {
-                if (!container) return;
+        <!-- Notes Timeline -->
+        <h6 class="fw-bold mb-3">Bitácora de Actividades</h6>
+        <div class="notes-timeline">
+            {% if notes %}
+            {% for note in notes %}
+            <div class="card mb-3 border-0 bg-light">
+                <div class="card-body p-3">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="fw-bold text-primary">
+                            <i class="bi bi-person-circle me-1"></i> {{ note.author.nombre_completo }}
+                        </span>
+                        <small class="text-muted">
+                            <i class="bi bi-clock me-1"></i> {{ note.timestamp.strftime('%d/%m/%Y %H:%M') }}
+                        </small>
+                    </div>
+                    <p class="mb-0 text-dark" style="white-space: pre-line;">{{ note.content }}</p>
+                </div>
+            </div>
+            {% endfor %}
+            {% else %}
+            <div class="text-center text-muted py-3">
+                <i class="bi bi-journal-x fs-1 d-block mb-2"></i>
+                No hay notas registradas para este caso.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endif %}
 
-                // Select all relevant inputs within the container
-                const inputs = container.querySelectorAll('input[name$="_valor"], select[name$="_estado"]');
-
-                inputs.forEach(el => {
-                    // Bind both input and change for robustness
-                    el.addEventListener('input', calcularPorcentaje);
-                    el.addEventListener('change', calcularPorcentaje);
-                });
-            }
-
-            if (valorTotalInput) {
-                valorTotalInput.addEventListener('input', calcularPorcentaje);
-            }
-
-            // Initial Bind and Calculate
-            bindCalculationEvents();
-            calcularPorcentaje();
-        });
-    </script>
-    {% endblock %}
+{% endblock %}

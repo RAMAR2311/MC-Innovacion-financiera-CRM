@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request, send_from_directory, current_app, jsonify, send_file
 from flask_login import login_required, logout_user, current_user
-from models import db, User, Client, Document, FinancialObligation, PaymentDiagnosis, ContractInstallment, AdministrativeExpense
+from models import db, User, Client, Document, FinancialObligation, PaymentDiagnosis, ContractInstallment, AdministrativeExpense, CaseMessage, ClientNote
 from werkzeug.utils import secure_filename
 import os
 from datetime import datetime
@@ -34,6 +34,25 @@ def client_detail(client_id):
         flash('No tienes permiso para acceder a este cliente.', 'danger')
         return redirect(url_for('aliados.aliados_dashboard'))
     
+    if current_user.rol == 'Abogado' and client.abogado_id != current_user.id:
+        flash('No tienes permiso para ver este expediente.', 'danger')
+        return redirect(url_for('lawyer.lawyer_dashboard'))
+    
+    if current_user.rol == 'Analista' and client.analista_id != current_user.id:
+        flash('No tienes permiso para ver este expediente.', 'danger')
+        return redirect(url_for('analyst.analyst_dashboard'))
+    
+    # Mark messages as read if Abogado is viewing
+    if current_user.rol == 'Abogado' and client.abogado_id == current_user.id:
+        unread_msgs = CaseMessage.query.filter_by(client_id=client.id, is_read_by_recipient=False).all()
+        for msg in unread_msgs:
+            if msg.sender_id != current_user.id:
+                msg.is_read_by_recipient = True
+        db.session.commit()
+
+    # Fetch chat history
+    messages = CaseMessage.query.filter_by(client_id=client.id).order_by(CaseMessage.timestamp.asc()).all()
+
     # List files in upload folder for this client
     # We will create a subfolder per client or just prefix files
     # For simplicity, let's just list all files in uploads that start with client_id_
@@ -53,7 +72,10 @@ def client_detail(client_id):
     if current_user.rol == 'Analista':
         documents = [d for d in documents if d.visible_para_analista]
             
-    return render_template('client_detail.html', client=client, files=files, documents=documents)
+    # Fetch Notes
+    notes = ClientNote.query.filter_by(client_id=client_id).order_by(ClientNote.timestamp.desc()).all()
+
+    return render_template('client_detail.html', client=client, files=files, documents=documents, messages=messages, notes=notes)
 
 @main_bp.route('/client/<int:client_id>/upload', methods=['POST'])
 @login_required
@@ -108,8 +130,10 @@ def update_status(client_id):
         
     client = Client.query.get_or_404(client_id)
     new_status = request.form.get('new_status')
-    if new_status:
+    new_status = request.form.get('new_status')
+    if new_status and new_status != client.estado:
         client.estado = new_status
+        client.last_status_update = datetime.utcnow()
         db.session.commit()
         flash('Estado actualizado', 'success')
     return redirect(url_for('main.client_detail', client_id=client_id))
@@ -199,6 +223,57 @@ def update_legal_status(obligation_id):
         
     return redirect(url_for('main.client_detail', client_id=obligation.client_id))
 
+@main_bp.route('/client/<int:client_id>/edit', methods=['POST'])
+@login_required
+def edit_client(client_id):
+    if current_user.rol not in ['Admin', 'Abogado', 'Analista']:
+        flash('No autorizado', 'danger')
+        return redirect(url_for('main.index'))
+    
+    client = Client.query.get_or_404(client_id)
+    
+    # Security check again
+    if current_user.rol == 'Abogado' and client.abogado_id != current_user.id:
+        flash('No autorizado', 'danger')
+        return redirect(url_for('main.index'))
+    if current_user.rol == 'Analista' and client.analista_id != current_user.id:
+        flash('No autorizado', 'danger')
+        return redirect(url_for('main.index'))
+
+    client.nombre = request.form.get('nombre')
+    client.telefono = request.form.get('telefono')
+    client.email = request.form.get('email')
+    client.tipo_id = request.form.get('tipo_id')
+    client.numero_id = request.form.get('numero_id')
+    client.ciudad = request.form.get('ciudad')
+    client.contract_number = request.form.get('contract_number')
+    
+    db.session.commit()
+    flash('Información del cliente actualizada', 'success')
+    return redirect(url_for('main.client_detail', client_id=client_id))
+
+@main_bp.route('/client/<int:client_id>/add_note', methods=['POST'])
+@login_required
+def add_note(client_id):
+    if current_user.rol not in ['Analista', 'Abogado', 'Admin']:
+         flash('No autorizado', 'danger')
+         return redirect(url_for('main.index'))
+         
+    content = request.form.get('note_content')
+    if content:
+        new_note = ClientNote(
+            content=content,
+            author_id=current_user.id,
+            client_id=client_id
+        )
+        db.session.add(new_note)
+        db.session.commit()
+        flash('Nota agregada exitosamente', 'success')
+    else:
+        flash('La nota no puede estar vacía', 'warning')
+        
+    return redirect(url_for('main.client_detail', client_id=client_id))
+
 @main_bp.route('/accounting')
 @login_required
 def accounting_dashboard():
@@ -285,6 +360,16 @@ def client_portal():
         flash('No se encontró un expediente asociado a este usuario.', 'danger')
         logout_user()
         return redirect(url_for('auth.login'))
+
+    # Mark messages as read for Client
+    unread_msgs = CaseMessage.query.filter_by(client_id=client.id, is_read_by_recipient=False).all()
+    for msg in unread_msgs:
+        if msg.sender_id != current_user.id:
+            msg.is_read_by_recipient = True
+    db.session.commit()
+
+    # Fetch messages
+    messages = CaseMessage.query.filter_by(client_id=client.id).order_by(CaseMessage.timestamp.asc()).all()
         
     contract = client.payment_contract
     total_pagado = 0
@@ -297,7 +382,7 @@ def client_portal():
             
     documents = Document.query.filter_by(client_id=client.id).order_by(Document.created_at.desc()).all()
 
-    return render_template('client_dashboard.html', client=client, contract=contract, total_pagado=total_pagado, progress_percentage=progress_percentage, documents=documents)
+    return render_template('client_dashboard.html', client=client, contract=contract, total_pagado=total_pagado, progress_percentage=progress_percentage, documents=documents, messages=messages)
 
 @main_bp.route('/balance_general', methods=['GET', 'POST'])
 @login_required

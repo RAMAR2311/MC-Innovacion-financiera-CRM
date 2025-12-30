@@ -49,6 +49,7 @@ def aliados_new_client():
         email = request.form.get('email')
         ciudad = request.form.get('ciudad')
         motivo_consulta = request.form.get('motivo_consulta')
+        contract_number = request.form.get('contract_number')
         
         # Lógica para "Información Incompleta" vs "Nuevo"
         if 'incomplete' in request.form:
@@ -61,6 +62,7 @@ def aliados_new_client():
             telefono=telefono, 
             tipo_id=tipo_id,
             numero_id=numero_id,
+            contract_number=contract_number,
             email=email,
             ciudad=ciudad,
             motivo_consulta=motivo_consulta,

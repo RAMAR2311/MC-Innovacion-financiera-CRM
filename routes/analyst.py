@@ -39,18 +39,20 @@ def analyst_dashboard():
     meta = 64
     porcentaje = min((progreso / meta) * 100, 100) if meta > 0 else 0
 
-    # Existing Search Logic
     nombre = request.args.get('nombre')
-    analista = request.args.get('analista')
+    status = request.args.get('status')
     fecha = request.args.get('fecha')
 
     query = Client.query
 
+    if current_user.rol == 'Analista':
+        query = query.filter(Client.analista_id == current_user.id)
+
     if nombre:
         query = query.filter(Client.nombre.ilike(f'%{nombre}%'))
     
-    if analista:
-        query = query.join(Client.analista).filter(User.nombre_completo.ilike(f'%{analista}%'))
+    if status:
+        query = query.filter(Client.estado == status)
     
     if fecha:
         query = query.filter(func.date(Client.created_at) == fecha)
@@ -74,6 +76,7 @@ def new_client():
         email = request.form.get('email')
         ciudad = request.form.get('ciudad')
         motivo_consulta = request.form.get('motivo_consulta')
+        contract_number = request.form.get('contract_number')
         
         # Lógica para "Información Incompleta" vs "Nuevo"
         if 'incomplete' in request.form:
@@ -86,6 +89,7 @@ def new_client():
             telefono=telefono, 
             tipo_id=tipo_id,
             numero_id=numero_id,
+            contract_number=contract_number,
             email=email,
             ciudad=ciudad,
             motivo_consulta=motivo_consulta,

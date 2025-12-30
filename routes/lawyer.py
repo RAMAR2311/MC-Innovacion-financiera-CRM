@@ -13,8 +13,11 @@ def lawyer_dashboard():
         return redirect(url_for('main.index'))
     
     query = Client.query.filter(
-        Client.estado.in_(['Pendiente_Analisis', 'Con_Analisis', 'Con_Contrato', 'Radicado', 'Finalizado'])
+        Client.estado.in_(['Pendiente_Analisis', 'Con_Analisis', 'Con_Contrato', 'Radicado', 'Finalizado', 'Finalizado_Proceso_Credito'])
     )
+
+    if current_user.rol == 'Abogado':
+        query = query.filter(Client.abogado_id == current_user.id)
 
     # Filtering logic
     nombre = request.args.get('nombre')

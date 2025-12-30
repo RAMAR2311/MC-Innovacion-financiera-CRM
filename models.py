@@ -19,6 +19,7 @@ class Client(db.Model):
     nombre = db.Column(db.String(100))
     tipo_id = db.Column(db.String(20))
     numero_id = db.Column(db.String(20))
+    contract_number = db.Column(db.String(50), nullable=True, unique=True)
     telefono = db.Column(db.String(20), nullable=False)
     email = db.Column(db.String(120))
     ciudad = db.Column(db.String(50))
@@ -28,6 +29,7 @@ class Client(db.Model):
     abogado_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     conclusion_analisis = db.Column(db.Text) # New field for analysis conclusion
+    last_status_update = db.Column(db.DateTime, default=datetime.utcnow) # New field for last status update
     login_user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True) # Link to User
 
     analista = db.relationship('User', foreign_keys=[analista_id], backref='clientes_registrados')
@@ -133,3 +135,24 @@ class AllyPayment(db.Model):
     observation = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     ally_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+
+class CaseMessage(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    content = db.Column(db.Text, nullable=False)
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+    sender_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    client_id = db.Column(db.Integer, db.ForeignKey('client.id'), nullable=False)
+    is_read_by_recipient = db.Column(db.Boolean, default=False)
+
+    sender = db.relationship('User', backref='sent_case_messages')
+    client = db.relationship('Client', backref=db.backref('case_messages', cascade='all, delete-orphan'))
+
+class ClientNote(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    content = db.Column(db.Text, nullable=False)
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+    author_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    client_id = db.Column(db.Integer, db.ForeignKey('client.id'), nullable=False)
+
+    author = db.relationship('User', backref='notes_authored')
+    client = db.relationship('Client', backref=db.backref('notes', cascade='all, delete-orphan'))

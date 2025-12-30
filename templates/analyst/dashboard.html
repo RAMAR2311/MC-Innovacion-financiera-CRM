@@ -16,8 +16,22 @@
                     value="{{ request.args.get('nombre', '') }}">
             </div>
             <div class="col-md-3">
-                <input type="text" class="form-control" name="analista" placeholder="Buscar por Analista"
-                    value="{{ request.args.get('analista', '') }}">
+                <select class="form-select" name="status">
+                    <option value="" selected>Filtrar por Estado</option>
+                    <option value="Nuevo" {% if request.args.get('status')=='Nuevo' %}selected{% endif %}>Nuevo</option>
+                    <option value="Informacion_Incompleta" {% if request.args.get('status')=='Informacion_Incompleta'
+                        %}selected{% endif %}>Incompleto</option>
+                    <option value="Pendiente_Analisis" {% if request.args.get('status')=='Pendiente_Analisis'
+                        %}selected{% endif %}>Pendiente Análisis</option>
+                    <option value="Con_Analisis" {% if request.args.get('status')=='Con_Analisis' %}selected{% endif %}>
+                        Con Análisis</option>
+                    <option value="Con_Contrato" {% if request.args.get('status')=='Con_Contrato' %}selected{% endif %}>
+                        Con Contrato</option>
+                    <option value="Radicado" {% if request.args.get('status')=='Radicado' %}selected{% endif %}>Radicado
+                    </option>
+                    <option value="Finalizado" {% if request.args.get('status')=='Finalizado' %}selected{% endif %}>
+                        Finalizado</option>
+                </select>
             </div>
             <div class="col-md-3">
                 <input type="date" class="form-control" name="fecha" value="{{ request.args.get('fecha', '') }}">
@@ -65,6 +79,7 @@
                         <th>Teléfono</th>
                         <th>Estado</th>
                         <th>Analista</th>
+                        <th>Fecha Actualización</th>
                         <th>Fecha Registro</th>
                         <th>Acciones</th>
                         {% if current_user.rol == 'Admin' %}
@@ -93,6 +108,8 @@
                             {% endif %}
                         </td>
                         <td>{{ client.analista.nombre_completo if client.analista else '-' }}</td>
+                        <td>{{ client.last_status_update.strftime('%d/%m/%Y') if client.last_status_update else '-' }}
+                        </td>
                         <td>{{ client.created_at.strftime('%Y-%m-%d') }}</td>
                         <td class="d-flex gap-1">
                             <a href="{{ url_for('main.client_detail', client_id=client.id) }}"

@@ -18,7 +18,23 @@ def update_db():
                 # If error, column likely doesn't exist, so add it
                 print("Adding 'conclusion_analisis' column...")
                 conn.execute(text("ALTER TABLE client ADD COLUMN conclusion_analisis TEXT"))
-                print("Column added.")
+                print("Column 'conclusion_analisis' added.")
+            
+            try:
+                conn.execute(text("SELECT contract_number FROM client LIMIT 1"))
+                print("Column 'contract_number' already exists.")
+            except Exception:
+                print("Adding 'contract_number' column...")
+                conn.execute(text("ALTER TABLE client ADD COLUMN contract_number VARCHAR(50)"))
+                print("Column 'contract_number' added.")
+
+            try:
+                conn.execute(text("SELECT last_status_update FROM client LIMIT 1"))
+                print("Column 'last_status_update' already exists.")
+            except Exception:
+                print("Adding 'last_status_update' column...")
+                conn.execute(text("ALTER TABLE client ADD COLUMN last_status_update DATETIME"))
+                print("Column 'last_status_update' added.")
 
 if __name__ == '__main__':
     update_db()
