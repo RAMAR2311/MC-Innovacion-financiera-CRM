@@ -1,0 +1,25 @@
+# Security & Secrets
+.env
+.flaskenv
+instance/
+config_local.py
+
+# Python & compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environments
+env/
+venv/
+.venv/
+
+# IDE & OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Application Content
+uploads/
+*.log
