@@ -68,9 +68,10 @@ def client_detail(client_id):
     # Fetch documents from DB
     documents = Document.query.filter_by(client_id=client_id).all()
     
-    # Filter for Analyst
-    if current_user.rol == 'Analista':
+    # Filter for Analyst and Ally
+    if current_user.rol in ['Analista', 'Aliado']:
         documents = [d for d in documents if d.visible_para_analista]
+
             
     # Fetch Notes
     notes = ClientNote.query.filter_by(client_id=client_id).order_by(ClientNote.timestamp.desc()).all()
@@ -100,8 +101,9 @@ def upload_file(client_id):
         if current_user.rol == 'Abogado':
              visible_analyst = 'visible_para_analista' in request.form
              visible_client = 'visible_para_cliente' in request.form
-        elif current_user.rol == 'Analista':
-             visible_analyst = True # Analysts always see what they upload
+        elif current_user.rol in ['Analista', 'Aliado']:
+             visible_analyst = True # Analysts and Allies always see what they upload
+
              
         new_doc = Document(
             filename=filename,
@@ -165,14 +167,16 @@ def toggle_client_visibility(doc_id):
 @main_bp.route('/client/<int:client_id>/add_financial_obligation', methods=['POST'])
 @login_required
 def add_financial_obligation(client_id):
-    if current_user.rol not in ['Analista', 'Abogado', 'Admin']:
+    if current_user.rol not in ['Analista', 'Abogado', 'Admin', 'Aliado']:
         flash('No autorizado', 'danger')
         return redirect(url_for('main.index'))
+
         
-    entidad = request.form.get('entidad')
-    estado = request.form.get('estado')
+    entidad = request.form.get('entidad', '').replace('\r', '').replace('\n', '').strip()
+    estado = request.form.get('estado', '').replace('\r', '').replace('\n', '').strip()
     valor = request.form.get('valor')
-    estado_legal = request.form.get('estado_legal')
+    estado_legal = request.form.get('estado_legal', '').replace('\r', '').replace('\n', '').strip()
+
     
     if entidad and estado and valor:
         new_obligation = FinancialObligation(
@@ -193,9 +197,10 @@ def add_financial_obligation(client_id):
 @main_bp.route('/client/<int:client_id>/update_analysis', methods=['POST'])
 @login_required
 def update_analysis(client_id):
-    if current_user.rol not in ['Analista', 'Abogado']:
+    if current_user.rol not in ['Analista', 'Abogado', 'Aliado']:
         flash('No autorizado', 'danger')
         return redirect(url_for('main.index'))
+
         
     client = Client.query.get_or_404(client_id)
     conclusion = request.form.get('conclusion_analisis')
@@ -209,9 +214,10 @@ def update_analysis(client_id):
 @main_bp.route('/obligation/<int:obligation_id>/update_legal_status', methods=['POST'])
 @login_required
 def update_legal_status(obligation_id):
-    if current_user.rol not in ['Analista', 'Abogado', 'Admin']:
+    if current_user.rol not in ['Analista', 'Abogado', 'Admin', 'Aliado']:
         flash('No autorizado', 'danger')
         return redirect(url_for('main.index'))
+
         
     obligation = FinancialObligation.query.get_or_404(obligation_id)
     new_status = request.form.get('estado_legal')
@@ -226,9 +232,10 @@ def update_legal_status(obligation_id):
 @main_bp.route('/client/<int:client_id>/edit', methods=['POST'])
 @login_required
 def edit_client(client_id):
-    if current_user.rol not in ['Admin', 'Abogado', 'Analista']:
+    if current_user.rol not in ['Admin', 'Abogado', 'Analista', 'Aliado']:
         flash('No autorizado', 'danger')
         return redirect(url_for('main.index'))
+
     
     client = Client.query.get_or_404(client_id)
     
@@ -255,11 +262,13 @@ def edit_client(client_id):
 @main_bp.route('/client/<int:client_id>/add_note', methods=['POST'])
 @login_required
 def add_note(client_id):
-    if current_user.rol not in ['Analista', 'Abogado', 'Admin']:
+    if current_user.rol not in ['Analista', 'Abogado', 'Admin', 'Aliado']:
          flash('No autorizado', 'danger')
          return redirect(url_for('main.index'))
+
          
-    content = request.form.get('note_content')
+    content = request.form.get('note_content', '').strip()
+
     if content:
         new_note = ClientNote(
             content=content,
@@ -284,6 +293,10 @@ def accounting_dashboard():
     # Get Date Filters
     start_date = request.args.get('start_date')
     end_date = request.args.get('end_date')
+
+    # Validate Dates
+    if start_date in ['None', '', 'null']: start_date = None
+    if end_date in ['None', '', 'null']: end_date = None
 
     # Base Queries
     # 1. KPIs
@@ -380,7 +393,7 @@ def client_portal():
         if contract.valor_total > 0:
             progress_percentage = (total_pagado / contract.valor_total) * 100
             
-    documents = Document.query.filter_by(client_id=client.id).order_by(Document.created_at.desc()).all()
+    documents = Document.query.filter_by(client_id=client.id, visible_para_cliente=True).order_by(Document.created_at.desc()).all()
 
     return render_template('client_dashboard.html', client=client, contract=contract, total_pagado=total_pagado, progress_percentage=progress_percentage, documents=documents, messages=messages)
 
@@ -395,6 +408,10 @@ def balance_general():
     start_date = request.args.get('start_date') or request.form.get('start_date')
     end_date = request.args.get('end_date') or request.form.get('end_date')
 
+    # Validate Dates
+    if start_date in ['None', '', 'null']: start_date = None
+    if end_date in ['None', '', 'null']: end_date = None
+
     # Handle POST (Bulk Save Expenses)
     if request.method == 'POST':
         saved_count = 0
@@ -406,7 +423,7 @@ def balance_general():
              except:
                  pass
 
-        for i in range(1, 11):
+        for i in range(1, 6):
             desc = request.form.get(f'descripcion_{i}')
             val = request.form.get(f'valor_{i}')
             
@@ -468,7 +485,9 @@ def balance_general():
     
     utilidad_neta = total_ingresos - total_gastos - costo_negocio
     
-    expenses_list = q_expenses_list.order_by(AdministrativeExpense.fecha.desc()).all()
+    # Show all records, filtered or not.
+    query = q_expenses_list.order_by(AdministrativeExpense.fecha.desc(), AdministrativeExpense.id.desc())
+    expenses_list = query.all()
 
     return render_template('balance_general.html',
                            total_ingresos=total_ingresos,
@@ -489,6 +508,10 @@ def download_balance_pdf():
     # Date Filters
     start_date = request.args.get('start_date')
     end_date = request.args.get('end_date')
+
+    # Validate Dates
+    if start_date in ['None', '', 'null']: start_date = None
+    if end_date in ['None', '', 'null']: end_date = None
 
     # Re-Calculate Logic (Identical to View)
     # 1. Income

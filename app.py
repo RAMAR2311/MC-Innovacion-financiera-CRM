@@ -1,15 +1,24 @@
-from flask import Flask, render_template
+from flask import Flask, render_template, flash, redirect, url_for
 from models import db, User
 from flask_login import LoginManager, current_user
 import os
 from dotenv import load_dotenv
-from config import Config
 
 # Load environment variables from .env file
 load_dotenv()
 
+from config import Config
+from flask_wtf.csrf import CSRFProtect, CSRFError
+
 app = Flask(__name__)
 app.config.from_object(Config)
+
+csrf = CSRFProtect(app)
+
+@app.errorhandler(CSRFError)
+def handle_csrf_error(e):
+    flash('Sesión expirada o token inválido. Por favor, intenta nuevamente.', 'danger')
+    return redirect(url_for('login'))
 
 db.init_app(app)
 login_manager = LoginManager()
@@ -94,7 +103,9 @@ if __name__ == '__main__':
         db.create_all()
         # Create default admin if not exists
         if not User.query.filter_by(email='admin@mc.com').first():
-            admin = User(nombre_completo='Admin', email='admin@mc.com', rol='Admin', password='admin') 
+            from werkzeug.security import generate_password_hash
+            hashed_pw = generate_password_hash('admin')
+            admin = User(nombre_completo='Admin', email='admin@mc.com', rol='Admin', password=hashed_pw) 
             db.session.add(admin)
             db.session.commit()
             print("Admin user created.")

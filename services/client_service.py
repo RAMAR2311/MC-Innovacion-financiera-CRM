@@ -27,14 +27,17 @@ class ClientService:
                  raise ValueError(f"El campo '{field}' es obligatorio.")
 
         # 2. Extract Data
-        nombre: str = data.get('nombre')
-        telefono: str = data.get('telefono')
-        tipo_id: str = data.get('tipo_id')
-        numero_id: str = data.get('numero_id')
-        email: str = data.get('email')
-        ciudad: str = data.get('ciudad')
-        motivo_consulta: str = data.get('motivo_consulta')
-        contract_number: str = data.get('contract_number')
+        nombre: str = (data.get('nombre') or '').replace('\r', '').replace('\n', '').strip()
+        telefono: str = (data.get('telefono') or '').replace('\r', '').replace('\n', '').strip()
+        tipo_id: str = (data.get('tipo_id') or '').replace('\r', '').replace('\n', '').strip()
+        numero_id: str = (data.get('numero_id') or '').replace('\r', '').replace('\n', '').strip()
+        email: str = (data.get('email') or '').replace('\r', '').replace('\n', '').strip().lower()
+        ciudad: str = (data.get('ciudad') or '').replace('\r', '').replace('\n', '').strip()
+        motivo_consulta: str = data.get('motivo_consulta', '').strip()
+
+        # Manejo seguro de nulos para campo Único
+        raw_contract = data.get('contract_number')
+        contract_number = raw_contract.strip() if raw_contract and raw_contract.strip() else None
         
         # 3. Check for duplicates
         if numero_id and Client.query.filter_by(numero_id=numero_id).first():
@@ -69,3 +72,17 @@ class ClientService:
         db.session.commit()
         
         return client
+
+    @staticmethod
+    def delete_client(client_id: int) -> None:
+        """
+        Deletes a client and all associated records.
+        """
+        client = Client.query.get_or_404(client_id)
+        
+        try:
+            db.session.delete(client)
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            raise e

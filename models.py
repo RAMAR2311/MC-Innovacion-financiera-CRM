@@ -11,6 +11,8 @@ class User(UserMixin, db.Model):
     email = db.Column(db.String(120), unique=True, nullable=False)
     rol = db.Column(db.String(20), nullable=False)  # 'Admin', 'Analista', 'Abogado', 'Aliado'
     password = db.Column(db.String(200)) # Added password for auth
+    is_active = db.Column(db.Boolean, default=True) # Added for portal revocation
+
 
     payments = db.relationship('AllyPayment', backref='ally', lazy=True)
 
@@ -118,6 +120,7 @@ class ContractInstallment(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     payment_contract_id = db.Column(db.Integer, db.ForeignKey('payment_contract.id'), nullable=False)
     numero_cuota = db.Column(db.Integer, nullable=False)
+    concepto = db.Column(db.String(100)) # New field for description
     valor = db.Column(db.Float)
     fecha_vencimiento = db.Column(db.Date)
     metodo_pago = db.Column(db.String(50))

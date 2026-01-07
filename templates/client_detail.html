@@ -164,6 +164,7 @@
                 <div class="dashboard-card p-3 mb-3">
                     <h6 class="fw-bold border-bottom pb-2 mb-3">Cambiar Estado</h6>
                     <form action="{{ url_for('main.update_status', client_id=client.id) }}" method="POST">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
                         <select class="form-select form-select-sm mb-3" name="new_status">
                             {% if current_user.rol == 'Admin' %}
                             <option value="Pendiente_Analisis" {% if client.estado=='Pendiente_Analisis' %}selected{%
@@ -201,17 +202,29 @@
                 {% if current_user.rol == 'Admin' %}
                 <div class="dashboard-card p-3">
                     <h6 class="fw-bold border-bottom pb-2 mb-3">Acceso Portal</h6>
-                    {% if client.login_user_id %}
-                    <div class="alert alert-success py-2 px-3 small mb-0">
+                    {% if client.login_user_id and client.login_user.is_active %}
+                    <div class="alert alert-success py-2 px-3 small mb-2">
                         <i class="bi bi-check-circle me-1"></i> Habilitado<br>
                         <strong>{{ client.login_user.email }}</strong>
                     </div>
+                    <form action="{{ url_for('admin.revoke_client_access', client_id=client.id) }}" method="POST"
+                        onsubmit="return confirm('¿Estás seguro de que deseas denegar el acceso a este cliente?')">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                        <button type="submit" class="btn btn-danger btn-sm w-100">Denegar Acceso</button>
+                    </form>
                     {% else %}
+                    {% if client.login_user_id and not client.login_user.is_active %}
+                    <div class="alert alert-danger py-2 px-3 small mb-2">
+                        <i class="bi bi-shield-lock me-1"></i> Acceso Revocado
+                    </div>
+                    {% endif %}
                     <form action="{{ url_for('admin.generate_client_access', client_id=client.id) }}" method="POST">
-                        <button type="submit" class="btn btn-warning btn-sm w-100">Crear Acceso</button>
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                        <button type="submit" class="btn btn-success btn-sm w-100">Generar Acceso</button>
                     </form>
                     {% endif %}
                 </div>
+
                 {% endif %}
 
                 <!-- Analyst/Aliado Send to Lawyer -->
@@ -223,6 +236,7 @@
                     <form
                         action="{{ url_for('analyst.send_to_lawyer' if current_user.rol == 'Analista' else 'aliados.send_to_lawyer', client_id=client.id) }}"
                         method="POST">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
                         <button type="submit" class="btn btn-dark btn-sm w-100">Enviar a Abogado</button>
                     </form>
                 </div>
@@ -269,9 +283,10 @@
                                 </div>
                                 <div class="col-md-12">
                                     <h5 class="fw-bold text-dark mb-3 mt-2">Conclusión del Análisis</h5>
-                                    {% if current_user.rol in ['Analista', 'Abogado'] %}
+                                    {% if current_user.rol in ['Analista', 'Abogado', 'Aliado'] %}
                                     <form action="{{ url_for('main.update_analysis', client_id=client.id) }}"
                                         method="POST">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
                                         <div class="form-floating mb-3">
                                             <textarea class="form-control" name="conclusion_analisis"
                                                 id="conclusionInput"
@@ -294,7 +309,7 @@
 
                         <!-- TAB 2: FINANCIALS -->
                         <div class="tab-pane fade" id="financial" role="tabpanel">
-                            {% set is_analyst = current_user.rol == 'Analista' %}
+                            {% set is_restricted = current_user.rol not in ['Analista', 'Abogado', 'Aliado', 'Admin'] %}
 
                             <!-- Obligations -->
                             <div class="d-flex justify-content-between align-items-center mb-4">
@@ -307,6 +322,7 @@
                                 <div class="card card-body bg-light border-0">
                                     <form action="{{ url_for('main.add_financial_obligation', client_id=client.id) }}"
                                         method="POST" class="row g-3">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
                                         <div class="col-md-3">
                                             <label class="form-label small fw-bold">Entidad</label>
                                             <input type="text" class="form-control form-control-sm" name="entidad"
@@ -354,6 +370,7 @@
                                         <form
                                             action="{{ url_for('main.update_legal_status', obligation_id=obligation.id) }}"
                                             method="POST">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
                                             <select class="form-select form-select-sm" name="estado_legal"
                                                 onchange="this.form.submit()">
                                                 <option value="Sin Iniciar" {% if obligation.estado_legal=='Sin Iniciar'
@@ -421,7 +438,8 @@
                             <h5 class="fw-bold mb-3">Diagnóstico Inicial</h5>
                             <form action="{{ url_for('lawyer.save_payment_diagnosis', client_id=client.id) }}"
                                 method="POST" class="mb-5">
-                                <fieldset {% if is_analyst %}disabled{% endif %}>
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                                <fieldset {% if is_restricted %}disabled{% endif %}>
                                     <div class="row g-3 align-items-end">
                                         <div class="col-md-4">
                                             <label class="form-label small">Valor</label>
@@ -449,25 +467,28 @@
                                             </select>
                                         </div>
                                         <div class="col-md-2">
-                                            {% if not is_analyst %}
+                                            {% if not is_restricted %}
                                             <button type="submit" class="btn btn-primary btn-sm w-100">Guardar</button>
                                             {% endif %}
                                         </div>
                                     </div>
+                                    {% if current_user.rol in ['Admin', 'Abogado'] %}
                                     <div class="form-check mt-2 small">
                                         <input class="form-check-input" type="checkbox" name="verificado"
                                             id="checkVerificado" {% if client.payment_diagnosis and
                                             client.payment_diagnosis.verificado %}checked{% endif %}>
                                         <label class="form-check-label" for="checkVerificado">Pago Verificado</label>
                                     </div>
+                                    {% endif %}
                                 </fieldset>
                             </form>
 
                             <!-- Contract -->
-                            <h5 class="fw-bold mb-3">Contrato (6 Cuotas)</h5>
+                            <h5 class="fw-bold mb-3">Contrato</h5>
                             <form action="{{ url_for('lawyer.save_contract_details', client_id=client.id) }}"
                                 method="POST" id="contractForm">
-                                <fieldset {% if is_analyst %}disabled{% endif %}>
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                                <fieldset {% if is_restricted %}disabled{% endif %}>
                                     <div
                                         class="bg-light p-3 rounded mb-3 d-flex justify-content-between align-items-center">
                                         <div>
@@ -488,62 +509,88 @@
                                         </div>
                                     </div>
 
-                                    <div id="staticInstallmentsContainer">
-                                        {% set installments_map = {} %}
-                                        {% if client.payment_contract and client.payment_contract.installments %}
-                                        {% for inst in client.payment_contract.installments %}
-                                        {% set _ = installments_map.update({inst.numero_cuota: inst}) %}
-                                        {% endfor %}
-                                        {% endif %}
-
+                                    <div id="dynamicInstallmentsContainer">
+                                        {# Sort installments by numero_cuota to ensure order #}
                                         <div class="table-responsive">
-                                            <table class="table table-sm align-middle">
+                                            <table class="table table-sm align-middle" id="installmentsTable">
                                                 <thead>
                                                     <tr class="text-muted small">
-                                                        <th>Cuota</th>
+                                                        <th style="width: 150px;">Concepto</th>
                                                         <th>Valor</th>
                                                         <th>Fecha</th>
+                                                        <th>Método</th>
                                                         <th>Estado</th>
+                                                        <th></th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
-                                                    {% for i in range(1, 7) %}
-                                                    {% set inst = installments_map.get(i) %}
-                                                    <tr>
-                                                        <td style="width: 50px;"><span class="badge bg-secondary">{{ i
-                                                                }}</span></td>
-                                                        <td><input type="number" class="form-control form-control-sm"
-                                                                name="cuota_{{ i }}_valor"
-                                                                value="{{ inst.valor if inst else '' }}"
-                                                                placeholder="$"></td>
-                                                        <td><input type="date" class="form-control form-control-sm"
-                                                                name="cuota_{{ i }}_fecha"
-                                                                value="{{ inst.fecha_vencimiento if inst and inst.fecha_vencimiento else '' }}">
+                                                    {% set installments =
+                                                    client.payment_contract.installments|sort(attribute='numero_cuota')
+                                                    if client.payment_contract and client.payment_contract.installments
+                                                    else [] %}
+
+                                                    {# Render existing installments #}
+                                                    {% for inst in installments %}
+                                                    <tr data-index="{{ inst.numero_cuota }}">
+                                                        <td>
+                                                            <input type="text" class="form-control form-control-sm"
+                                                                name="cuota_{{ inst.numero_cuota }}_concepto"
+                                                                value="{{ inst.concepto or 'Cuota ' ~ inst.numero_cuota }}">
+                                                        </td>
+                                                        <td>
+                                                            <input type="number" class="form-control form-control-sm"
+                                                                name="cuota_{{ inst.numero_cuota }}_valor"
+                                                                value="{{ inst.valor }}" placeholder="$">
+                                                        </td>
+                                                        <td>
+                                                            <input type="date" class="form-control form-control-sm"
+                                                                name="cuota_{{ inst.numero_cuota }}_fecha"
+                                                                value="{{ inst.fecha_vencimiento if inst.fecha_vencimiento else '' }}">
                                                         </td>
                                                         <td>
                                                             <select class="form-select form-select-sm"
-                                                                name="cuota_{{ i }}_estado">
-                                                                {% set estado = inst.estado if inst else '' %}
-                                                                <option value="" {% if not estado %}selected{% endif %}>
-                                                                    -</option>
-                                                                <option value="Pendiente" {% if estado=='Pendiente'
+                                                                name="cuota_{{ inst.numero_cuota }}_metodo">
+                                                                <option value="" disabled {% if not inst.metodo_pago
+                                                                    %}selected{% endif %}>-</option>
+                                                                {% for m in ['Nequi', 'Daviplata', 'Bancolombia', 'Link
+                                                                de pago', 'Efectivo'] %}
+                                                                <option value="{{ m }}" {% if inst.metodo_pago==m
+                                                                    %}selected{% endif %}>{{ m }}</option>
+                                                                {% endfor %}
+                                                            </select>
+                                                        </td>
+                                                        <td>
+                                                            <select class="form-select form-select-sm"
+                                                                name="cuota_{{ inst.numero_cuota }}_estado">
+                                                                <option value="Pendiente" {% if inst.estado=='Pendiente'
                                                                     %}selected{% endif %}>Pendiente</option>
-                                                                <option value="Pagada" {% if estado=='Pagada'
+                                                                <option value="Pagada" {% if inst.estado=='Pagada'
                                                                     %}selected{% endif %}>Pagada</option>
-                                                                <option value="En Mora" {% if estado=='En Mora'
+                                                                <option value="En Mora" {% if inst.estado=='En Mora'
                                                                     %}selected{% endif %}>Mora</option>
-                                                                <option value="Anulada" {% if estado=='Anulada'
+                                                                <option value="Anulada" {% if inst.estado=='Anulada'
                                                                     %}selected{% endif %}>Anulada</option>
                                                             </select>
+                                                        </td>
+                                                        <td class="text-end">
+                                                            {# Optional: Delete button logic if desired, for now keeping
+                                                            simple #}
                                                         </td>
                                                     </tr>
                                                     {% endfor %}
                                                 </tbody>
                                             </table>
+
+                                            {% if not is_restricted %}
+                                            <button type="button" class="btn btn-sm btn-outline-primary mt-2"
+                                                id="btnAddQuota">
+                                                <i class="bi bi-plus-circle"></i> Agregar Pagos
+                                            </button>
+                                            {% endif %}
                                         </div>
                                     </div>
 
-                                    {% if not is_analyst %}
+                                    {% if not is_restricted %}
                                     <div class="text-end mt-3">
                                         <button type="submit" class="btn btn-success"><i class="bi bi-check-lg"></i>
                                             Guardar Cambios</button>
@@ -565,6 +612,7 @@
                                         <form action="{{ url_for('main.upload_file', client_id=client.id) }}"
                                             method="POST" enctype="multipart/form-data"
                                             class="d-inline-block text-start" style="max-width: 400px;">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
                                             <div class="input-group mb-2">
                                                 <input type="file" class="form-control" name="file" required>
                                                 <button class="btn btn-primary" type="submit">Subir</button>
@@ -645,6 +693,7 @@
                                     {% endfor %}
                                 </div>
                                 <form action="{{ url_for('chat.send_message', client_id=client.id) }}" method="POST">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
                                     <div class="input-group">
                                         <input type="text" class="form-control" name="content"
                                             placeholder="Escribe un mensaje..." required autocomplete="off">
@@ -670,6 +719,7 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <form action="{{ url_for('main.edit_client', client_id=client.id) }}" method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
                 <div class="modal-body p-4">
                     <div class="mb-3">
                         <label class="form-label">Nombre</label>
@@ -699,16 +749,18 @@
 </div>
 
 <script>
-    // JS for Visibility Toggle & Contract Calc (Simplified)
+    // JS for Visibility Toggle & Contract Calc (Dynamic)
     document.addEventListener('DOMContentLoaded', function () {
         // --- 1. Chat Scroll ---
         var chatBox = document.getElementById('chatMessages');
         if (chatBox) chatBox.scrollTop = chatBox.scrollHeight;
 
-        // --- 2. Contract Percentage Calc ---
+        // --- 2. Contract Percentage Calc & Dynamic Rows ---
         const valorTotalInput = document.getElementById('valorTotalContract');
         const percentageDisplay = document.getElementById('porcentajeDisplay');
-        const container = document.getElementById('staticInstallmentsContainer');
+        const container = document.getElementById('dynamicInstallmentsContainer');
+        const tableBody = document.querySelector('#installmentsTable tbody');
+        const btnAddQuota = document.getElementById('btnAddQuota');
 
         function calculate() {
             if (!valorTotalInput || !container) return;
@@ -733,11 +785,71 @@
             percentageDisplay.className = pct >= 100 ? 'text-success m-0 fw-bold' : (pct > 0 ? 'text-primary m-0' : 'text-muted m-0');
         }
 
-        if (container) {
-            container.querySelectorAll('input, select').forEach(el => {
+        // Add New Quota Logic
+        if (btnAddQuota && tableBody) {
+            btnAddQuota.addEventListener('click', function () {
+                // Find Max Index
+                let maxIndex = 0;
+                tableBody.querySelectorAll('tr[data-index]').forEach(row => {
+                    const idx = parseInt(row.getAttribute('data-index'));
+                    if (idx > maxIndex) maxIndex = idx;
+                });
+                const newIndex = maxIndex + 1;
+
+                // Create Row HTML
+                const row = document.createElement('tr');
+                row.setAttribute('data-index', newIndex);
+                row.innerHTML = `
+                    <td>
+                        <input type="text" class="form-control form-control-sm"
+                            name="cuota_${newIndex}_concepto" value="Cuota ${newIndex}">
+                    </td>
+                    <td>
+                        <input type="number" class="form-control form-control-sm"
+                            name="cuota_${newIndex}_valor" placeholder="$">
+                    </td>
+                    <td>
+                        <input type="date" class="form-control form-control-sm"
+                            name="cuota_${newIndex}_fecha">
+                    </td>
+                    <td>
+                        <select class="form-select form-select-sm" name="cuota_${newIndex}_metodo">
+                            <option value="" disabled selected>-</option>
+                            <option value="Nequi">Nequi</option>
+                            <option value="Daviplata">Daviplata</option>
+                            <option value="Bancolombia">Bancolombia</option>
+                            <option value="Link de pago">Link de pago</option>
+                            <option value="Efectivo">Efectivo</option>
+                        </select>
+                    </td>
+                    <td>
+                        <select class="form-select form-select-sm" name="cuota_${newIndex}_estado">
+                            <option value="Pendiente" selected>Pendiente</option>
+                            <option value="Pagada">Pagada</option>
+                            <option value="En Mora">Mora</option>
+                            <option value="Anulada">Anulada</option>
+                        </select>
+                    </td>
+                    <td class="text-end"></td>
+                `;
+
+                tableBody.appendChild(row);
+
+                // Re-bind events for new inputs
+                bindEvents(row);
+                calculate();
+            });
+        }
+
+        function bindEvents(parent) {
+            parent.querySelectorAll('input, select').forEach(el => {
                 el.addEventListener('change', calculate);
                 el.addEventListener('input', calculate);
             });
+        }
+
+        if (container) {
+            bindEvents(container);
         }
         if (valorTotalInput) valorTotalInput.addEventListener('input', calculate);
 
@@ -751,7 +863,14 @@
             ? `/document/${docId}/toggle_analyst_visibility`
             : `/document/${docId}/toggle_client_visibility`;
 
-        fetch(endpoint, { method: 'POST' })
+        const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
+        fetch(endpoint, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken
+            }
+        })
             .then(r => r.json())
             .then(data => {
                 if (data.success) {
@@ -767,7 +886,7 @@
     }
 </script>
 <!-- Management History Note Section -->
-{% if current_user.rol in ['Analista', 'Abogado', 'Admin'] %}
+{% if current_user.rol in ['Analista', 'Abogado', 'Admin', 'Aliado'] %}
 <div class="card shadow-sm mt-4 mb-4">
     <div class="card-header bg-secondary text-white">
         <h5 class="mb-0"><i class="bi bi-journal-text me-2"></i>Historial de Gestión</h5>
@@ -775,6 +894,7 @@
     <div class="card-body">
         <!-- Add Note Form -->
         <form action="{{ url_for('main.add_note', client_id=client.id) }}" method="POST" class="mb-4">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
             <div class="mb-3">
                 <label for="note_content" class="form-label fw-bold">Nueva Nota / Bitácora</label>
                 <textarea class="form-control" id="note_content" name="note_content" rows="3"

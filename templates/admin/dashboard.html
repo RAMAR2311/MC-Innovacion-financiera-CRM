@@ -38,6 +38,7 @@
                             <form action="{{ url_for('admin.delete_user', user_id=user.id) }}" method="POST"
                                 onsubmit="return confirm('¿Estás seguro de eliminar a este usuario? Esta acción es irreversible.');"
                                 style="display:inline;">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
                                 <button type="submit" class="btn btn-sm btn-danger" title="Eliminar">
                                     <i class="bi bi-trash"></i> Eliminar
                                 </button>
@@ -63,6 +64,7 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <form action="{{ url_for('admin.create_user') }}" method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
                 <div class="modal-body">
                     <div class="mb-3">
                         <label for="nombre" class="form-label">Nombre Completo</label>

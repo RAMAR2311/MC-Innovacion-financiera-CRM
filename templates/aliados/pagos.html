@@ -14,6 +14,7 @@
             </div>
             <div class="card-body">
                 <form action="{{ url_for('aliados.upload_pago') }}" method="POST" enctype="multipart/form-data">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
                     <div class="row align-items-end">
                         <div class="col-md-5">
                             <label for="file" class="form-label">Soporte PDF *</label>

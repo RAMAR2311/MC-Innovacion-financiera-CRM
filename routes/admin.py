@@ -1,7 +1,8 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request
 from flask_login import login_required, current_user
 from models import db, User, Client
-from sqlalchemy.exc import IntegrityError
+from services.user_service import UserService
+from services.client_service import ClientService
 
 admin_bp = Blueprint('admin', __name__)
 
@@ -20,19 +21,14 @@ def create_user():
     if current_user.rol != 'Admin':
         return redirect(url_for('main.index'))
     
-    nombre = request.form.get('nombre')
-    email = request.form.get('email')
-    password = request.form.get('password')
-    rol = request.form.get('rol')
-    telefono = request.form.get('telefono')
-
-    if User.query.filter_by(email=email).first():
-        flash('El email ya existe', 'warning')
-    else:
-        new_user = User(nombre_completo=nombre, email=email, password=password, rol=rol, telefono=telefono)
-        db.session.add(new_user)
-        db.session.commit()
+    try:
+        UserService.create_user(request.form)
         flash('Usuario creado exitosamente', 'success')
+    except ValueError as e:
+        flash(str(e), 'warning')
+    except Exception as e:
+        flash(f'Error al crear usuario: {str(e)}', 'danger')
+
     return redirect(url_for('admin.admin_dashboard'))
 
 @admin_bp.route('/admin/delete_user/<int:user_id>', methods=['POST'])
@@ -46,17 +42,12 @@ def delete_user(user_id):
         flash('No puedes eliminar tu propio usuario.', 'danger')
         return redirect(url_for('admin.admin_dashboard'))
     
-    user = User.query.get_or_404(user_id)
-    
     try:
-        db.session.delete(user)
-        db.session.commit()
+        UserService.delete_user(user_id)
         flash('Usuario eliminado exitosamente.', 'success')
-    except IntegrityError:
-        db.session.rollback()
-        flash('No se puede eliminar este usuario porque tiene clientes o registros asignados. Intenta reasignar sus casos primero.', 'danger')
+    except ValueError as e:
+         flash(str(e), 'danger')
     except Exception as e:
-        db.session.rollback()
         flash(f'Error al eliminar usuario: {str(e)}', 'danger')
         
     return redirect(url_for('admin.admin_dashboard'))
@@ -68,44 +59,33 @@ def generate_client_access(client_id):
         flash('No autorizado', 'danger')
         return redirect(url_for('main.index'))
     
-    client = Client.query.get_or_404(client_id)
-    email = client.email
-    if not email:
-        flash('El cliente no tiene un email registrado.', 'danger')
-        return redirect(url_for('main.client_detail', client_id=client_id))
-
-    # Auto-generate or set default password
-    password = "Cliente2024*" 
-    
-    # Check if user already exists
-    existing_user = User.query.filter_by(email=email).first()
-    if existing_user:
-        flash(f'El usuario con email {email} ya existe.', 'warning')
-        # Optional: Link if not linked? For now just warn.
-        if not client.login_user_id:
-             client.login_user_id = existing_user.id
-             db.session.commit()
-             flash('Se ha vinculado el usuario existente al cliente.', 'info')
-        return redirect(url_for('main.client_detail', client_id=client_id))
-    
-    # Create new User
-    # Note: In production use hashed passwords!
-    new_user = User(
-        nombre_completo=client.nombre,
-        email=email,
-        password=password, 
-        rol='Cliente',
-        telefono=client.telefono
-    )
-    db.session.add(new_user)
-    db.session.flush() # to get ID
-    
-    # Link to Client
-    client.login_user_id = new_user.id
-    db.session.commit()
-    
-    flash(f'Usuario creado exitosamente. La contraseña temporal es: {password}', 'success')
+    try:
+        user = UserService.generate_client_access(client_id)
+        flash(f'Usuario creado exitosamente. La contraseña temporal es: 123456', 'success')
+    except ValueError as e:
+        flash(str(e), 'warning')
+    except Exception as e:
+         flash(f'Error al generar acceso: {str(e)}', 'danger')
+         
     return redirect(url_for('main.client_detail', client_id=client_id))
+
+@admin_bp.route('/client/<int:client_id>/revoke_access', methods=['POST'])
+@login_required
+def revoke_client_access(client_id):
+    if current_user.rol != 'Admin':
+        flash('No autorizado', 'danger')
+        return redirect(url_for('main.index'))
+    
+    try:
+        UserService.disable_portal_access(client_id)
+        flash('Acceso revocado correctamente.', 'success')
+    except ValueError as e:
+        flash(str(e), 'warning')
+    except Exception as e:
+        flash(f'Error al revocar acceso: {str(e)}', 'danger')
+        
+    return redirect(url_for('main.client_detail', client_id=client_id))
+
 
 @admin_bp.route('/admin/delete_client/<int:client_id>', methods=['POST'])
 @login_required
@@ -114,14 +94,10 @@ def delete_client(client_id):
         flash('Acceso no autorizado', 'danger')
         return redirect(url_for('main.index'))
     
-    client = Client.query.get_or_404(client_id)
-    
     try:
-        db.session.delete(client)
-        db.session.commit()
+        ClientService.delete_client(client_id)
         flash('Cliente y todos sus registros eliminados exitosamente.', 'success')
     except Exception as e:
-        db.session.rollback()
         flash(f'Error al eliminar cliente: {str(e)}', 'danger')
         
     return redirect(request.referrer or url_for('main.index'))

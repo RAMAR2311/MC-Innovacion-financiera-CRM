@@ -60,42 +60,14 @@
         </div>
     </form>
 
-    <!-- Existing Expenses List -->
-    {% if expenses %}
-    <div class="card mb-4">
-        <div class="card-header">Gastos Registrados en el Periodo</div>
-        <div class="card-body">
-            <div class="table-responsive">
-                <table class="table table-striped table-sm">
-                    <thead>
-                        <tr>
-                            <th>Fecha</th>
-                            <th>Descripción</th>
-                            <th>Valor</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for expense in expenses %}
-                        <tr>
-                            <td>{{ expense.fecha }}</td>
-                            <td>{{ expense.descripcion }}</td>
-                            <td>${{ "{:,.0f}".format(expense.valor) }}</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-    {% endif %}
-
     <!-- Bulk Entry Form -->
-    <div class="card shadow-sm">
+    <div class="card shadow-sm mb-4">
         <div class="card-header bg-secondary text-white">
             <h5 class="mb-0">Registrar Nuevos Gastos Administrativos</h5>
         </div>
         <div class="card-body">
             <form method="POST" action="{{ url_for('main.balance_general') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
                 <!-- Keep date context -->
                 <input type="hidden" name="start_date" value="{{ start_date }}">
                 <input type="hidden" name="end_date" value="{{ end_date }}">
@@ -110,7 +82,7 @@
                             </tr>
                         </thead>
                         <tbody>
-                            {% for i in range(1, 11) %}
+                            {% for i in range(1, 6) %}
                             <tr>
                                 <td class="text-center align-middle">{{ i }}</td>
                                 <td>
@@ -138,5 +110,40 @@
             </form>
         </div>
     </div>
+
+    <!-- Existing Expenses List -->
+    {% if expenses %}
+    <div class="card mb-4">
+        <div class="card-header">
+            {% if start_date or end_date %}
+            Registros en el Periodo Seleccionado
+            {% else %}
+            Todos los Registros
+            {% endif %}
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped table-sm">
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Descripción</th>
+                            <th>Valor</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for expense in expenses %}
+                        <tr>
+                            <td>{{ expense.fecha }}</td>
+                            <td>{{ expense.descripcion }}</td>
+                            <td>${{ "{:,.0f}".format(expense.valor) }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
 </div>
 {% endblock %}
