@@ -92,7 +92,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {% for p in recent_diagnoses %}
+                    {% for p in recent_diagnoses.items %}
                     <tr>
                         <td>{{ p.fecha_pago }}</td>
                         <td>{{ p.client.nombre }}</td>
@@ -103,6 +103,25 @@
                 </tbody>
             </table>
         </div>
+
+        <!-- Pagination Controls for Diagnoses -->
+        {% if recent_diagnoses.pages > 1 %}
+        <nav aria-label="Page navigation" class="mt-2">
+            <ul class="pagination pagination-sm justify-content-center">
+                <li class="page-item {% if not recent_diagnoses.has_prev %}disabled{% endif %}">
+                    <a class="page-link"
+                        href="{{ url_for('financial.accounting_dashboard', page_diag=recent_diagnoses.prev_num, page_inst=request.args.get('page_inst', 1), start_date=start_date, end_date=end_date, estado_cuota=current_filter) if recent_diagnoses.has_prev else '#' }}">Anterior</a>
+                </li>
+                <li class="page-item disabled"><span class="page-link">{{ recent_diagnoses.page }} / {{
+                        recent_diagnoses.pages }}</span></li>
+                <li class="page-item {% if not recent_diagnoses.has_next %}disabled{% endif %}">
+                    <a class="page-link"
+                        href="{{ url_for('financial.accounting_dashboard', page_diag=recent_diagnoses.next_num, page_inst=request.args.get('page_inst', 1), start_date=start_date, end_date=end_date, estado_cuota=current_filter) if recent_diagnoses.has_next else '#' }}">Siguiente</a>
+                </li>
+            </ul>
+        </nav>
+        {% endif %}
+
     </div>
     <div class="col-md-6">
         <div class="d-flex justify-content-between align-items-center mb-2">
@@ -121,8 +140,9 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {% for c in recent_installments %}
+                    {% for c in recent_installments.items %}
                     <tr>
+
                         <td>{{ c.fecha_vencimiento }}</td>
                         <td>{{ c.payment_contract.client.nombre }}</td>
                         <td>{{ c.numero_cuota }}</td>
@@ -141,6 +161,25 @@
                 </tbody>
             </table>
         </div>
+
+        <!-- Pagination Controls for Installments -->
+        {% if recent_installments.pages > 1 %}
+        <nav aria-label="Page navigation" class="mt-2">
+            <ul class="pagination pagination-sm justify-content-center">
+                <li class="page-item {% if not recent_installments.has_prev %}disabled{% endif %}">
+                    <a class="page-link"
+                        href="{{ url_for('financial.accounting_dashboard', page_inst=recent_installments.prev_num, page_diag=request.args.get('page_diag', 1), start_date=start_date, end_date=end_date, estado_cuota=current_filter) if recent_installments.has_prev else '#' }}">Anterior</a>
+                </li>
+                <li class="page-item disabled"><span class="page-link">{{ recent_installments.page }} / {{
+                        recent_installments.pages }}</span></li>
+                <li class="page-item {% if not recent_installments.has_next %}disabled{% endif %}">
+                    <a class="page-link"
+                        href="{{ url_for('financial.accounting_dashboard', page_inst=recent_installments.next_num, page_diag=request.args.get('page_diag', 1), start_date=start_date, end_date=end_date, estado_cuota=current_filter) if recent_installments.has_next else '#' }}">Siguiente</a>
+                </li>
+            </ul>
+        </nav>
+        {% endif %}
+
     </div>
 </div>
 {% endblock %}

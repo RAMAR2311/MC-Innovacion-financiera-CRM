@@ -5,6 +5,8 @@ from datetime import datetime
 
 chat_bp = Blueprint('chat', __name__)
 
+from utils.time_utils import get_colombia_now
+
 @chat_bp.route('/send_message/<int:client_id>', methods=['POST'])
 @login_required
 def send_message(client_id):
@@ -39,7 +41,8 @@ def send_message(client_id):
             content=content,
             sender_id=current_user.id,
             client_id=client.id,
-            is_read_by_recipient=False
+            is_read_by_recipient=False,
+            timestamp=get_colombia_now()
         )
         
         db.session.add(new_message)

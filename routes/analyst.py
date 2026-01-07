@@ -2,6 +2,8 @@ from flask import Blueprint, render_template, redirect, url_for, flash, request
 from flask_login import login_required, current_user
 from models import db, User, Client
 from sqlalchemy import func
+from utils.decorators import role_required
+
 
 analyst_bp = Blueprint('analyst', __name__)
 
@@ -10,9 +12,9 @@ import calendar
 
 @analyst_bp.route('/analyst')
 @login_required
+@role_required(['Analista', 'Admin'])
 def analyst_dashboard():
-    if current_user.rol not in ['Analista', 'Admin']:
-        return redirect(url_for('main.index'))
+
     
     # Logic for Monthly Goal Progress
     now = datetime.now()
@@ -57,7 +59,9 @@ def analyst_dashboard():
     if fecha:
         query = query.filter(func.date(Client.created_at) == fecha)
     
-    clients = query.order_by(Client.created_at.desc()).all()
+    page = request.args.get('page', 1, type=int)
+    clients = query.order_by(Client.created_at.desc()).paginate(page=page, per_page=20)
+
         
     return render_template('analyst/dashboard.html', 
                            clients=clients,
@@ -69,7 +73,9 @@ from services.client_service import ClientService
 
 @analyst_bp.route('/analyst/new_client', methods=['GET', 'POST'])
 @login_required
+@role_required(['Analista', 'Admin'])
 def new_client():
+
     if request.method == 'POST':
         try:
             # Prepare data dictionary, including the 'incomplete' flag existence check
@@ -94,10 +100,9 @@ def new_client():
 
 @analyst_bp.route('/client/<int:client_id>/send_to_lawyer', methods=['POST'])
 @login_required
+@role_required(['Analista'])
 def send_to_lawyer(client_id):
-    if current_user.rol != 'Analista':
-        flash('Acceso no autorizado', 'danger')
-        return redirect(url_for('main.index'))
+
     
     client = Client.query.get_or_404(client_id)
     

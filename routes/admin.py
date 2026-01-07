@@ -2,24 +2,28 @@ from flask import Blueprint, render_template, redirect, url_for, flash, request
 from flask_login import login_required, current_user
 from models import db, User, Client
 from services.user_service import UserService
+
 from services.client_service import ClientService
+from utils.decorators import role_required
+
 
 admin_bp = Blueprint('admin', __name__)
 
 @admin_bp.route('/admin')
 @login_required
+@role_required(['Admin'])
 def admin_dashboard():
-    if current_user.rol != 'Admin':
-        flash('Acceso no autorizado', 'danger')
-        return redirect(url_for('main.index'))
-    users = User.query.all()
+
+    page = request.args.get('page', 1, type=int)
+    users = User.query.paginate(page=page, per_page=20)
     return render_template('admin/dashboard.html', users=users)
+
 
 @admin_bp.route('/admin/create_user', methods=['POST'])
 @login_required
+@role_required(['Admin'])
 def create_user():
-    if current_user.rol != 'Admin':
-        return redirect(url_for('main.index'))
+
     
     try:
         UserService.create_user(request.form)
@@ -33,10 +37,9 @@ def create_user():
 
 @admin_bp.route('/admin/delete_user/<int:user_id>', methods=['POST'])
 @login_required
+@role_required(['Admin'])
 def delete_user(user_id):
-    if current_user.rol != 'Admin':
-        flash('Acceso no autorizado', 'danger')
-        return redirect(url_for('main.index'))
+
     
     if user_id == current_user.id:
         flash('No puedes eliminar tu propio usuario.', 'danger')
@@ -54,10 +57,9 @@ def delete_user(user_id):
 
 @admin_bp.route('/client/<int:client_id>/generate_access', methods=['POST'])
 @login_required
+@role_required(['Admin'])
 def generate_client_access(client_id):
-    if current_user.rol != 'Admin':
-        flash('No autorizado', 'danger')
-        return redirect(url_for('main.index'))
+
     
     try:
         user = UserService.generate_client_access(client_id)
@@ -71,10 +73,9 @@ def generate_client_access(client_id):
 
 @admin_bp.route('/client/<int:client_id>/revoke_access', methods=['POST'])
 @login_required
+@role_required(['Admin'])
 def revoke_client_access(client_id):
-    if current_user.rol != 'Admin':
-        flash('No autorizado', 'danger')
-        return redirect(url_for('main.index'))
+
     
     try:
         UserService.disable_portal_access(client_id)
@@ -89,10 +90,9 @@ def revoke_client_access(client_id):
 
 @admin_bp.route('/admin/delete_client/<int:client_id>', methods=['POST'])
 @login_required
+@role_required(['Admin'])
 def delete_client(client_id):
-    if current_user.rol != 'Admin':
-        flash('Acceso no autorizado', 'danger')
-        return redirect(url_for('main.index'))
+
     
     try:
         ClientService.delete_client(client_id)

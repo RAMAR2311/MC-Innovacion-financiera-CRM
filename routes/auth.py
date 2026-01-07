@@ -12,35 +12,24 @@ def login():
         password = request.form.get('password')
         user = User.query.filter_by(email=email).first()
         
-        if user:
-            is_valid = False
-            # 1. Try secure hash check
-            if user.password and check_password_hash(user.password, password):
-                is_valid = True
-            # 2. Fallback for old plaintext passwords (Migration Logic)
-            elif user.password == password:
-                is_valid = True
-                # Automatically upgrade to hash for next time
-                user.password = generate_password_hash(password)
-                db.session.commit()
+        if user and user.password and check_password_hash(user.password, password):
+            if not user.is_active:
+                flash('Tu cuenta ha sido desactivada. Por favor contacta al administrador.', 'warning')
+                return redirect(url_for('auth.login'))
+            login_user(user)
 
-            if is_valid:
-                if not user.is_active:
-                    flash('Tu cuenta ha sido desactivada. Por favor contacta al administrador.', 'warning')
-                    return redirect(url_for('auth.login'))
-                login_user(user)
+            if user.rol == 'Cliente':
+                return redirect(url_for('main.client_portal'))
+            elif user.rol == 'Admin':
+                return redirect(url_for('admin.admin_dashboard'))
+            elif user.rol == 'Analista':
+                return redirect(url_for('analyst.analyst_dashboard'))
+            elif user.rol == 'Aliado':
+                return redirect(url_for('aliados.aliados_dashboard'))
+            elif user.rol == 'Abogado':
+                return redirect(url_for('lawyer.lawyer_dashboard'))
+            return redirect(url_for('main.index'))
 
-                if user.rol == 'Cliente':
-                    return redirect(url_for('main.client_portal'))
-                elif user.rol == 'Admin':
-                    return redirect(url_for('admin.admin_dashboard'))
-                elif user.rol == 'Analista':
-                    return redirect(url_for('analyst.analyst_dashboard'))
-                elif user.rol == 'Aliado':
-                    return redirect(url_for('aliados.aliados_dashboard'))
-                elif user.rol == 'Abogado':
-                    return redirect(url_for('lawyer.lawyer_dashboard'))
-                return redirect(url_for('main.index'))
                 
         flash('Credenciales inválidas', 'danger')
     return render_template('login.html')

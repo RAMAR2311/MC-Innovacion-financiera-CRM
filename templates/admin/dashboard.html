@@ -26,8 +26,9 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {% for user in users %}
+                    {% for user in users.items %}
                     <tr>
+
                         <td>{{ user.id }}</td>
                         <td>{{ user.nombre_completo }}</td>
                         <td>{{ user.email }}</td>
@@ -52,7 +53,34 @@
                 </tbody>
             </table>
         </div>
+
+        <!-- Pagination Controls -->
+        {% if users.pages > 1 %}
+        <nav aria-label="Page navigation" class="mt-4">
+            <ul class="pagination justify-content-center">
+                <li class="page-item {% if not users.has_prev %}disabled{% endif %}">
+                    <a class="page-link"
+                        href="{{ url_for('admin.admin_dashboard', page=users.prev_num) if users.has_prev else '#' }}">Anterior</a>
+                </li>
+                {% for page_num in users.iter_pages(left_edge=1, right_edge=1, left_current=1, right_current=2) %}
+                {% if page_num %}
+                <li class="page-item {% if page_num == users.page %}active{% endif %}">
+                    <a class="page-link" href="{{ url_for('admin.admin_dashboard', page=page_num) }}">{{ page_num }}</a>
+                </li>
+                {% else %}
+                <li class="page-item disabled"><span class="page-link">...</span></li>
+                {% endif %}
+                {% endfor %}
+                <li class="page-item {% if not users.has_next %}disabled{% endif %}">
+                    <a class="page-link"
+                        href="{{ url_for('admin.admin_dashboard', page=users.next_num) if users.has_next else '#' }}">Siguiente</a>
+                </li>
+            </ul>
+        </nav>
+        {% endif %}
+
     </div>
+</div>
 </div>
 
 <!-- Modal Crear Usuario -->

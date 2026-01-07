@@ -1,6 +1,10 @@
-from models import db, Client, PaymentDiagnosis, PaymentContract, ContractInstallment
+from models import db, Client, PaymentDiagnosis, PaymentContract, ContractInstallment, AllyPayment
 from typing import Dict, Any
 from datetime import datetime
+import os
+from werkzeug.utils import secure_filename
+from flask import current_app
+
 
 class PaymentService:
     @staticmethod
@@ -125,4 +129,33 @@ class PaymentService:
         # Update total quotas count
         contract.numero_cuotas = valid_count 
         
+        db.session.commit()
+
+    @staticmethod
+    def save_ally_payment(file, observation: str, ally_id: int) -> None:
+        """
+        Saves a payment proof file uploaded by an ally.
+        """
+        if not file or file.filename == '':
+            raise ValueError('No se seleccionó ningún archivo')
+        
+        if not file.filename.lower().endswith('.pdf'):
+             raise ValueError('Solo se permiten archivos PDF')
+
+        filename = secure_filename(file.filename)
+        timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
+        filename = f"{ally_id}_{timestamp}_{filename}"
+
+        upload_folder = os.path.join(current_app.config['UPLOAD_FOLDER'], 'pagos_aliados')
+        if not os.path.exists(upload_folder):
+             os.makedirs(upload_folder)
+
+        file.save(os.path.join(upload_folder, filename))
+
+        new_payment = AllyPayment(
+            filename=filename,
+            observation=observation,
+            ally_id=ally_id
+        )
+        db.session.add(new_payment)
         db.session.commit()

@@ -5,3 +5,4 @@ Flask-WTF
 email_validator
 python-dotenv
 psycopg2-binary
+Flask-Migrate

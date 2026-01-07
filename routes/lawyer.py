@@ -2,19 +2,27 @@ from flask import Blueprint, render_template, redirect, url_for, flash, request
 from flask_login import login_required, current_user
 from models import db, User, Client
 from sqlalchemy import func
+from sqlalchemy.orm import joinedload
+from utils.decorators import role_required
+
+
 from services.payment_service import PaymentService
 
 lawyer_bp = Blueprint('lawyer', __name__)
 
 @lawyer_bp.route('/lawyer')
 @login_required
+@role_required(['Abogado', 'Admin'])
 def lawyer_dashboard():
-    if current_user.rol not in ['Abogado', 'Admin']:
-        return redirect(url_for('main.index'))
+
     
-    query = Client.query.filter(
+    query = Client.query.options(
+        joinedload(Client.analista),
+        joinedload(Client.abogado)
+    ).filter(
         Client.estado.in_(['Pendiente_Analisis', 'Con_Analisis', 'Con_Contrato', 'Radicado', 'Finalizado', 'Finalizado_Proceso_Credito'])
     )
+
 
     if current_user.rol == 'Abogado':
         query = query.filter(Client.abogado_id == current_user.id)
@@ -34,16 +42,17 @@ def lawyer_dashboard():
         # Cast created_at to date for comparison
         query = query.filter(func.date(Client.created_at) == fecha)
 
-    clients = query.all()
+    page = request.args.get('page', 1, type=int)
+    clients = query.paginate(page=page, per_page=20)
+
     
     return render_template('lawyer/dashboard.html', clients=clients)
 
 @lawyer_bp.route('/client/<int:client_id>/save_payment_diagnosis', methods=['POST'])
 @login_required
+@role_required(['Abogado', 'Aliado', 'Analista', 'Admin'])
 def save_payment_diagnosis(client_id):
-    if current_user.rol not in ['Abogado', 'Aliado', 'Analista', 'Admin']:
-        flash('No autorizado', 'danger')
-        return redirect(url_for('main.index'))
+
 
     
     try:
@@ -57,10 +66,9 @@ def save_payment_diagnosis(client_id):
 
 @lawyer_bp.route('/client/<int:client_id>/save_contract_details', methods=['POST'])
 @login_required
+@role_required(['Abogado', 'Aliado', 'Analista', 'Admin'])
 def save_contract_details(client_id):
-    if current_user.rol not in ['Abogado', 'Aliado', 'Analista', 'Admin']:
-        flash('No autorizado', 'danger')
-        return redirect(url_for('main.index'))
+
 
     
     try:

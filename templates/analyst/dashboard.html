@@ -54,16 +54,16 @@
             <span class="fw-bold">{{ progreso }} / {{ meta }} Análisis</span>
             <span class="fw-bold">{{ "{:.0f}".format(porcentaje) }}%</span>
         </div>
-        <div class="progress" style="height: 25px;">
-            <div class="progress-bar 
-                {% if porcentaje < 40 %}bg-danger
-                {% elif porcentaje < 80 %}bg-warning text-dark
-                {% else %}bg-success{% endif %}" role="progressbar" style="width: {{ porcentaje }}%;"
+        {% set bg_class = 'bg-danger' if porcentaje < 40 else 'bg-warning text-dark' if porcentaje < 80
+            else 'bg-success' %} {% set style_attr='style="width: ' ~ porcentaje ~ '%;"' %} <div class="progress"
+            style="height: 25px;">
+            <div class="progress-bar {{ bg_class }}" role="progressbar" {{ style_attr | safe }}
                 aria-valuenow="{{ porcentaje }}" aria-valuemin="0" aria-valuemax="100">
                 {{ "{:.0f}".format(porcentaje) }}%
             </div>
-        </div>
+
     </div>
+</div>
 </div>
 
 <div class="card shadow-sm">
@@ -88,8 +88,9 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {% for client in clients %}
+                    {% for client in clients.items %}
                     <tr>
+
                         <td>{{ client.nombre }}</td>
                         <td>{{ client.telefono }}</td>
                         <td>
@@ -137,6 +138,35 @@
                 </tbody>
             </table>
         </div>
+
+        <!-- Pagination Controls -->
+        {% if clients.pages > 1 %}
+        <nav aria-label="Page navigation" class="mt-4">
+            <ul class="pagination justify-content-center">
+                <li class="page-item {% if not clients.has_prev %}disabled{% endif %}">
+                    <a class="page-link"
+                        href="{{ url_for('analyst.analyst_dashboard', page=clients.prev_num, nombre=request.args.get('nombre'), status=request.args.get('status'), fecha=request.args.get('fecha')) if clients.has_prev else '#' }}">Anterior</a>
+                </li>
+                {% for page_num in clients.iter_pages(left_edge=1, right_edge=1, left_current=1, right_current=2) %}
+                {% if page_num %}
+                <li class="page-item {% if page_num == clients.page %}active{% endif %}">
+                    <a class="page-link"
+                        href="{{ url_for('analyst.analyst_dashboard', page=page_num, nombre=request.args.get('nombre'), status=request.args.get('status'), fecha=request.args.get('fecha')) }}">{{
+                        page_num }}</a>
+                </li>
+                {% else %}
+                <li class="page-item disabled"><span class="page-link">...</span></li>
+                {% endif %}
+                {% endfor %}
+                <li class="page-item {% if not clients.has_next %}disabled{% endif %}">
+                    <a class="page-link"
+                        href="{{ url_for('analyst.analyst_dashboard', page=clients.next_num, nombre=request.args.get('nombre'), status=request.args.get('status'), fecha=request.args.get('fecha')) if clients.has_next else '#' }}">Siguiente</a>
+                </li>
+            </ul>
+        </nav>
+        {% endif %}
+
     </div>
+</div>
 </div>
 {% endblock %}

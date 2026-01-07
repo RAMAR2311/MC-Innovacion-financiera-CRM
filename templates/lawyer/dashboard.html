@@ -57,7 +57,8 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {% for client in clients %}
+                    {% for client in clients.items %}
+
                     <tr>
                         <td>
                             {{ client.nombre }}
@@ -106,6 +107,35 @@
                 </tbody>
             </table>
         </div>
+
+        <!-- Pagination Controls -->
+        {% if clients.pages > 1 %}
+        <nav aria-label="Page navigation" class="mt-4">
+            <ul class="pagination justify-content-center">
+                <li class="page-item {% if not clients.has_prev %}disabled{% endif %}">
+                    <a class="page-link"
+                        href="{{ url_for('lawyer.lawyer_dashboard', page=clients.prev_num, nombre=request.args.get('nombre'), analista=request.args.get('analista'), fecha=request.args.get('fecha')) if clients.has_prev else '#' }}">Anterior</a>
+                </li>
+                {% for page_num in clients.iter_pages(left_edge=1, right_edge=1, left_current=1, right_current=2) %}
+                {% if page_num %}
+                <li class="page-item {% if page_num == clients.page %}active{% endif %}">
+                    <a class="page-link"
+                        href="{{ url_for('lawyer.lawyer_dashboard', page=page_num, nombre=request.args.get('nombre'), analista=request.args.get('analista'), fecha=request.args.get('fecha')) }}">{{
+                        page_num }}</a>
+                </li>
+                {% else %}
+                <li class="page-item disabled"><span class="page-link">...</span></li>
+                {% endif %}
+                {% endfor %}
+                <li class="page-item {% if not clients.has_next %}disabled{% endif %}">
+                    <a class="page-link"
+                        href="{{ url_for('lawyer.lawyer_dashboard', page=clients.next_num, nombre=request.args.get('nombre'), analista=request.args.get('analista'), fecha=request.args.get('fecha')) if clients.has_next else '#' }}">Siguiente</a>
+                </li>
+            </ul>
+        </nav>
+        {% endif %}
+
     </div>
+</div>
 </div>
 {% endblock %}

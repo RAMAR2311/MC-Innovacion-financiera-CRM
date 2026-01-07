@@ -10,6 +10,8 @@ load_dotenv()
 from config import Config
 from flask_wtf.csrf import CSRFProtect, CSRFError
 
+from flask_migrate import Migrate
+
 app = Flask(__name__)
 app.config.from_object(Config)
 
@@ -21,6 +23,8 @@ def handle_csrf_error(e):
     return redirect(url_for('login'))
 
 db.init_app(app)
+migrate = Migrate(app, db) # Initialize Flask-Migrate
+
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
@@ -36,6 +40,7 @@ from routes.lawyer import lawyer_bp
 from routes.aliados import aliados_bp
 from routes.chat import chat_bp
 from routes.main import main_bp
+from routes.financial import financial_bp
 
 app.register_blueprint(auth_bp)
 app.register_blueprint(admin_bp)
@@ -43,7 +48,9 @@ app.register_blueprint(analyst_bp)
 app.register_blueprint(lawyer_bp)
 app.register_blueprint(aliados_bp)
 app.register_blueprint(chat_bp)
+app.register_blueprint(financial_bp)
 app.register_blueprint(main_bp)
+
 
 from models import CaseMessage, Client
 
@@ -100,7 +107,8 @@ def inject_notifications():
 
 if __name__ == '__main__':
     with app.app_context():
-        db.create_all()
+        # db.create_all() # Removed in favor of Flask-Migrate
+
         # Create default admin if not exists
         if not User.query.filter_by(email='admin@mc.com').first():
             from werkzeug.security import generate_password_hash
