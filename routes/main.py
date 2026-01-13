@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request, send_from_directory, current_app, jsonify
 from flask_login import login_required, logout_user, current_user
-from models import db, Client, CaseMessage, ClientNote, ContractInstallment, Document
+from models import db, Client, CaseMessage, ClientNote, ContractInstallment, Document, User
 from services.financial_service import FinancialService
 from services.document_service import DocumentService
 from services.client_service import ClientService
@@ -43,6 +43,10 @@ def client_detail(client_id):
     if current_user.rol == 'Analista' and client.analista_id != current_user.id:
         flash('No tienes permiso para ver este expediente.', 'danger')
         return redirect(url_for('analyst.analyst_dashboard'))
+
+    if current_user.rol == 'Radicador' and client.radicador_id != current_user.id:
+        flash('No tienes permiso para ver este expediente.', 'danger')
+        return redirect(url_for('radicador.radicador_dashboard'))
     
     # Mark messages as read if Abogado is viewing
     if current_user.rol == 'Abogado' and client.abogado_id == current_user.id:
@@ -75,7 +79,11 @@ def client_detail(client_id):
     # Fetch Notes
     notes = ClientNote.query.filter_by(client_id=client_id).order_by(ClientNote.timestamp.desc()).all()
 
-    return render_template('client_detail.html', client=client, files=files, documents=documents, messages=messages, notes=notes)
+    radicadores = []
+    if current_user.rol in ['Abogado', 'Admin']:
+        radicadores = User.query.filter_by(rol='Radicador').all()
+
+    return render_template('client_detail.html', client=client, files=files, documents=documents, messages=messages, notes=notes, radicadores=radicadores)
 
 @main_bp.route('/client/<int:client_id>/upload', methods=['POST'])
 @login_required
@@ -256,9 +264,23 @@ def client_portal():
     if contract:
         total_pagado = db.session.query(db.func.sum(ContractInstallment.valor)).filter(ContractInstallment.payment_contract_id == contract.id, ContractInstallment.estado == 'Pagada').scalar() or 0
         if contract.valor_total > 0:
-            progress_percentage = (total_pagado / contract.valor_total) * 100
+            progress_percentage = float((total_pagado / contract.valor_total) * 100)
             
     # Use Service for documents
     documents = DocumentService.get_client_documents(client.id, 'Cliente')
 
     return render_template('client_dashboard.html', client=client, contract=contract, total_pagado=total_pagado, progress_percentage=progress_percentage, documents=documents, messages=messages)
+
+@main_bp.route('/client/<int:client_id>/assign_radicador', methods=['POST'])
+@login_required
+@role_required(['Abogado', 'Admin'])
+def assign_radicador(client_id):
+    client = Client.query.get_or_404(client_id)
+    radicador_id = request.form.get('radicador_id')
+    
+    if radicador_id:
+        client.radicador_id = radicador_id
+        db.session.commit()
+        flash('Radicador asignado exitosamente', 'success')
+    
+    return redirect(url_for('main.client_detail', client_id=client_id))

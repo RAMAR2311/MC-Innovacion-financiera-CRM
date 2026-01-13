@@ -50,6 +50,11 @@
 
                     </li>
                     {% endif %}
+                    {% if current_user.rol == 'Radicador' or current_user.rol == 'Admin' %}
+                    <li class="nav-item"><a class="nav-link"
+                            href="{{ url_for('radicador.radicador_dashboard') }}">Radicador</a>
+                    </li>
+                    {% endif %}
                     {% endif %}
                 </ul>
                 <ul class="navbar-nav">

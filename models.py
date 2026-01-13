@@ -44,6 +44,7 @@ class Client(db.Model):
     estado = db.Column(db.String(50), default=ClientStatus.NUEVO) # Use keys from ClientStatus
     analista_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     abogado_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    radicador_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     conclusion_analisis = db.Column(db.Text) # New field for analysis conclusion
     last_status_update = db.Column(db.DateTime, default=datetime.utcnow) # New field for last status update
@@ -52,6 +53,7 @@ class Client(db.Model):
     analista = db.relationship('User', foreign_keys=[analista_id], backref='clientes_registrados')
     login_user = db.relationship('User', foreign_keys=[login_user_id], backref='client_profile')
     abogado = db.relationship('User', foreign_keys=[abogado_id], backref='casos_asignados')
+    radicador = db.relationship('User', foreign_keys=[radicador_id], backref='casos_radicados')
 
 
 class FinancialObligation(db.Model):
