@@ -28,6 +28,8 @@ def login():
                 return redirect(url_for('aliados.aliados_dashboard'))
             elif user.rol == 'Abogado':
                 return redirect(url_for('lawyer.lawyer_dashboard'))
+            elif user.rol == 'Radicador':
+                return redirect(url_for('radicador.dashboard'))
             return redirect(url_for('main.index'))
 
                 

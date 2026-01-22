@@ -42,6 +42,7 @@ from routes.chat import chat_bp
 from routes.main import main_bp
 from routes.financial import financial_bp
 from routes.radicador import radicador_bp
+from routes.appointments import appointments_bp
 
 app.register_blueprint(auth_bp)
 app.register_blueprint(admin_bp)
@@ -51,6 +52,7 @@ app.register_blueprint(aliados_bp)
 app.register_blueprint(chat_bp)
 app.register_blueprint(financial_bp)
 app.register_blueprint(radicador_bp)
+app.register_blueprint(appointments_bp)
 app.register_blueprint(main_bp)
 
 

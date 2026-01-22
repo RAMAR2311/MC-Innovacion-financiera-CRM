@@ -26,6 +26,7 @@
                     {% if current_user.rol == 'Admin' %}
                     <li class="nav-item"><a class="nav-link" href="{{ url_for('admin.admin_dashboard') }}">Admin</a>
                     </li>
+                    <li class="nav-item"><a class="nav-link" href="{{ url_for('admin.reports') }}">📊 Reportes</a></li>
                     {% endif %}
                     {% if current_user.rol == 'Analista' or current_user.rol == 'Admin' %}
                     <li class="nav-item"><a class="nav-link"
@@ -51,8 +52,7 @@
                     </li>
                     {% endif %}
                     {% if current_user.rol == 'Radicador' or current_user.rol == 'Admin' %}
-                    <li class="nav-item"><a class="nav-link"
-                            href="{{ url_for('radicador.radicador_dashboard') }}">Radicador</a>
+                    <li class="nav-item"><a class="nav-link" href="{{ url_for('radicador.dashboard') }}">Radicador</a>
                     </li>
                     {% endif %}
                     {% endif %}

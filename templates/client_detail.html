@@ -143,6 +143,12 @@
                             data-bs-target="#editGeneralInfoModal">
                             <i class="bi bi-pencil-square"></i> Editar Perfil
                         </button>
+                        {% if current_user.rol in ['Analista', 'Aliado', 'Abogado', 'Admin', 'Radicador'] %}
+                        <button class="btn btn-outline-warning btn-sm" data-bs-toggle="modal"
+                            data-bs-target="#appointmentModal">
+                            <i class="bi bi-calendar-plus"></i> Agendar Cita
+                        </button>
+                        {% endif %}
                     </div>
 
                     <hr class="my-3">
@@ -248,13 +254,14 @@
                 {% endif %}
 
                 <!-- Analyst/Aliado Send to Lawyer -->
-                {% if (current_user.rol == 'Analista' or current_user.rol == 'Aliado') and client.estado in ['Nuevo',
+                {% if (current_user.rol == 'Analista' or current_user.rol == 'Aliado' or current_user.rol ==
+                'Radicador') and client.estado in ['Nuevo',
                 'Informacion_Incompleta'] %}
                 <div class="dashboard-card p-3 bg-warning bg-opacity-10">
                     <h6 class="fw-bold">Próximo Paso</h6>
                     <p class="small text-muted mb-2">Enviar a revisión legal una vez completado.</p>
                     <form
-                        action="{{ url_for('analyst.send_to_lawyer' if current_user.rol == 'Analista' else 'aliados.send_to_lawyer', client_id=client.id) }}"
+                        action="{{ url_for('analyst.send_to_lawyer', client_id=client.id) if current_user.rol == 'Analista' else (url_for('radicador.send_to_lawyer', client_id=client.id) if current_user.rol == 'Radicador' else url_for('aliados.send_to_lawyer', client_id=client.id)) }}"
                         method="POST">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
                         <button type="submit" class="btn btn-dark btn-sm w-100">Enviar a Abogado</button>
@@ -330,7 +337,13 @@
 
                         <!-- TAB 2: FINANCIALS -->
                         <div class="tab-pane fade" id="financial" role="tabpanel">
+                            {% set can_edit_financials = current_user.rol in ['Abogado', 'Aliado', 'Admin', 'Radicador']
+                            %}
                             {% set is_restricted = current_user.rol not in ['Analista', 'Abogado', 'Aliado', 'Admin'] %}
+                            {% set installments_check = client.payment_contract.installments if client.payment_contract
+                            else [] %}
+                            {% set has_mora = installments_check | selectattr('estado', 'equalto', 'En Mora') | list |
+                            length > 0 %}
 
                             <!-- Obligations -->
                             <div class="d-flex justify-content-between align-items-center mb-4">
@@ -467,7 +480,7 @@
                             <form action="{{ url_for('lawyer.save_payment_diagnosis', client_id=client.id) }}"
                                 method="POST" class="mb-5">
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-                                <fieldset {% if is_restricted %}disabled{% endif %}>
+                                <fieldset {% if not can_edit_financials %}disabled{% endif %}>
                                     <div class="row g-3 align-items-end">
                                         <div class="col-md-4">
                                             <label class="form-label small">Valor</label>
@@ -495,7 +508,7 @@
                                             </select>
                                         </div>
                                         <div class="col-md-2">
-                                            {% if not is_restricted %}
+                                            {% if can_edit_financials %}
                                             <button type="submit" class="btn btn-primary btn-sm w-100">Guardar</button>
                                             {% endif %}
                                         </div>
@@ -513,10 +526,18 @@
 
                             <!-- Contract -->
                             <h5 class="fw-bold mb-3">Contrato</h5>
+                            {% if has_mora %}
+                            <div class="alert alert-danger border-danger shadow-sm mb-3">
+                                <h5 class="alert-heading fw-bold"><i class="bi bi-exclamation-circle-fill me-2"></i>Pago
+                                    Atrasado Detectado</h5>
+                                <p class="mb-0">Este cliente tiene cuotas vencidas que no han sido registradas como
+                                    pagadas. El estado ha cambiado automáticamente a <strong>En Mora</strong>.</p>
+                            </div>
+                            {% endif %}
                             <form action="{{ url_for('lawyer.save_contract_details', client_id=client.id) }}"
                                 method="POST" id="contractForm">
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-                                <fieldset {% if is_restricted %}disabled{% endif %}>
+                                <fieldset {% if not can_edit_financials %}disabled{% endif %}>
                                     <div
                                         class="bg-light p-3 rounded mb-3 d-flex justify-content-between align-items-center">
                                         <div>
@@ -609,7 +630,7 @@
                                                 </tbody>
                                             </table>
 
-                                            {% if not is_restricted %}
+                                            {% if can_edit_financials %}
                                             <button type="button" class="btn btn-sm btn-outline-primary mt-2"
                                                 id="btnAddQuota">
                                                 <i class="bi bi-plus-circle"></i> Agregar Pagos
@@ -618,7 +639,7 @@
                                         </div>
                                     </div>
 
-                                    {% if not is_restricted %}
+                                    {% if can_edit_financials %}
                                     <div class="text-end mt-3">
                                         <button type="submit" class="btn btn-success"><i class="bi bi-check-lg"></i>
                                             Guardar Cambios</button>
@@ -776,6 +797,42 @@
     </div>
 </div>
 
+</div>
+
+<!-- Appointment Modal (Internal) -->
+<div class="modal fade" id="appointmentModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold">Agendar Reunión (Staff)</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <p class="text-muted small">Agendando en nombre del cliente: <strong>{{ client.nombre }}</strong></p>
+
+                <form id="bookingForm" action="{{ url_for('appointments.book_appointment', client_id=client.id) }}"
+                    method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="time" id="selectedTime">
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Fecha</label>
+                        <input type="date" class="form-control" name="date" id="apptDate" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Horas Disponibles</label>
+                        <div id="slotsContainer" class="d-grid gap-2" style="grid-template-columns: repeat(2, 1fr);">
+                            <div class="text-center text-muted small p-2 border rounded" style="grid-column: span 2;">
+                                Selecciona una fecha...</div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
     // JS for Visibility Toggle & Contract Calc (Dynamic)
     document.addEventListener('DOMContentLoaded', function () {
@@ -797,6 +854,51 @@
 
             let paid = 0;
             const inputs = container.querySelectorAll('input[name$="_valor"]');
+
+            // --- 3. Appointment System Logic ---
+            const apptInput = document.getElementById('apptDate');
+            const slotsDiv = document.getElementById('slotsContainer');
+            const bkForm = document.getElementById('bookingForm');
+            const timeInp = document.getElementById('selectedTime');
+
+            if (apptInput) {
+                const today = new Date().toISOString().split('T')[0];
+                apptInput.setAttribute('min', today);
+
+                apptInput.addEventListener('change', function () {
+                    const dateVal = this.value;
+                    if (!dateVal) return;
+
+                    slotsDiv.innerHTML = '<div class="text-center py-2"><div class="spinner-border spinner-border-sm text-primary"></div></div>';
+
+                    fetch(`/api/slots/{{ client.id }}?date=${dateVal}`)
+                        .then(res => res.json())
+                        .then(data => {
+                            slotsDiv.innerHTML = '';
+                            if (data.length === 0) {
+                                slotsDiv.innerHTML = '<div class="alert alert-warning small text-center mb-0" style="grid-column: span 2;">Sin disponibilidad.</div>';
+                                return;
+                            }
+                            data.forEach(s => {
+                                const btn = document.createElement('button');
+                                btn.type = 'button';
+                                btn.className = 'btn btn-outline-dark btn-sm';
+                                btn.innerText = s.label;
+                                btn.onclick = () => {
+                                    if (confirm(`¿Agendar cita para el ${dateVal} a las ${s.label}?`)) {
+                                        timeInp.value = s.time;
+                                        bkForm.submit();
+                                    }
+                                };
+                                slotsDiv.appendChild(btn);
+                            });
+                        })
+                        .catch(e => {
+                            console.error(e);
+                            slotsDiv.innerHTML = '<div class="text-danger small">Error.</div>';
+                        });
+                });
+            }
             inputs.forEach(input => {
                 const nameParts = input.name.split('_'); // cuota_1_valor
                 const idx = nameParts[1];

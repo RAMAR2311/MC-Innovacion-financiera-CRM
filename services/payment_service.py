@@ -159,3 +159,26 @@ class PaymentService:
         )
         db.session.add(new_payment)
         db.session.commit()
+
+    @staticmethod
+    def check_and_update_arrears(client_id: int) -> None:
+        """
+        automatically checks for overdue pending installments and marks them as 'En Mora'.
+        """
+        client = Client.query.get_or_404(client_id)
+        contract = client.payment_contract
+        
+        if not contract or not contract.installments:
+            return
+
+        today = datetime.now().date()
+        changed = False
+
+        for inst in contract.installments:
+            if inst.estado == 'Pendiente' and inst.fecha_vencimiento:
+                if inst.fecha_vencimiento < today:
+                    inst.estado = 'En Mora'
+                    changed = True
+        
+        if changed:
+            db.session.commit()

@@ -4,6 +4,7 @@ from models import db, Client, CaseMessage, ClientNote, ContractInstallment, Doc
 from services.financial_service import FinancialService
 from services.document_service import DocumentService
 from services.client_service import ClientService
+from services.payment_service import PaymentService
 from utils.decorators import role_required
 from utils.time_utils import get_colombia_now
 from datetime import datetime
@@ -46,7 +47,7 @@ def client_detail(client_id):
 
     if current_user.rol == 'Radicador' and client.radicador_id != current_user.id:
         flash('No tienes permiso para ver este expediente.', 'danger')
-        return redirect(url_for('radicador.radicador_dashboard'))
+        return redirect(url_for('radicador.dashboard'))
     
     # Mark messages as read if Abogado is viewing
     if current_user.rol == 'Abogado' and client.abogado_id == current_user.id:
@@ -54,7 +55,10 @@ def client_detail(client_id):
         for msg in unread_msgs:
             if msg.sender_id != current_user.id:
                 msg.is_read_by_recipient = True
-        db.session.commit()
+            db.session.commit()
+
+    # Check for arrears automatically
+    PaymentService.check_and_update_arrears(client.id)
 
     # Fetch chat history
     messages = CaseMessage.query.filter_by(client_id=client.id).order_by(CaseMessage.timestamp.asc()).all()
@@ -104,7 +108,7 @@ def upload_file(client_id):
             if current_user.rol == 'Abogado':
                  visible_analyst = 'visible_para_analista' in request.form
                  visible_client = 'visible_para_cliente' in request.form
-            elif current_user.rol in ['Analista', 'Aliado']:
+            elif current_user.rol in ['Analista', 'Aliado', 'Radicador']:
                  visible_analyst = True 
 
             DocumentService.upload_file(file, client_id, current_user.id, visible_analyst, visible_client)
@@ -156,7 +160,7 @@ def toggle_client_visibility(doc_id):
 
 @main_bp.route('/client/<int:client_id>/add_financial_obligation', methods=['POST'])
 @login_required
-@role_required(['Analista', 'Abogado', 'Admin', 'Aliado'])
+@role_required(['Analista', 'Abogado', 'Admin', 'Aliado', 'Radicador'])
 def add_financial_obligation(client_id):
     try:
         FinancialService.add_obligation(request.form.to_dict(), client_id)
@@ -170,7 +174,7 @@ def add_financial_obligation(client_id):
 
 @main_bp.route('/client/<int:client_id>/update_analysis', methods=['POST'])
 @login_required
-@role_required(['Analista', 'Abogado', 'Aliado'])
+@role_required(['Analista', 'Abogado', 'Aliado', 'Radicador'])
 def update_analysis(client_id):
     client = Client.query.get_or_404(client_id)
     client.conclusion_analisis = request.form.get('conclusion_analisis')
@@ -180,7 +184,7 @@ def update_analysis(client_id):
 
 @main_bp.route('/obligation/<int:obligation_id>/update_legal_status', methods=['POST'])
 @login_required
-@role_required(['Analista', 'Abogado', 'Admin', 'Aliado'])
+@role_required(['Analista', 'Abogado', 'Admin', 'Aliado', 'Radicador'])
 def update_legal_status(obligation_id):
     new_status = request.form.get('estado_legal')
     obligation = FinancialService.update_legal_status(obligation_id, new_status)
@@ -189,7 +193,7 @@ def update_legal_status(obligation_id):
 
 @main_bp.route('/client/<int:client_id>/edit', methods=['POST'])
 @login_required
-@role_required(['Admin', 'Abogado', 'Analista', 'Aliado'])
+@role_required(['Admin', 'Abogado', 'Analista', 'Aliado', 'Radicador'])
 def edit_client(client_id):
     client = Client.query.get_or_404(client_id)
     
@@ -217,7 +221,7 @@ def edit_client(client_id):
 
 @main_bp.route('/client/<int:client_id>/add_note', methods=['POST'])
 @login_required
-@role_required(['Analista', 'Abogado', 'Admin', 'Aliado'])
+@role_required(['Analista', 'Abogado', 'Admin', 'Aliado', 'Radicador'])
 def add_note(client_id):
     content = request.form.get('note_content', '').strip()
     if content:

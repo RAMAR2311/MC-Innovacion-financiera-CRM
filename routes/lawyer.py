@@ -4,9 +4,12 @@ from models import db, User, Client
 from sqlalchemy import func
 from sqlalchemy.orm import joinedload
 from utils.decorators import role_required
+from utils.time_utils import get_colombia_now
+from datetime import datetime
 
 
 from services.payment_service import PaymentService
+from models import Interaction
 
 lawyer_bp = Blueprint('lawyer', __name__)
 
@@ -43,14 +46,25 @@ def lawyer_dashboard():
         query = query.filter(func.date(Client.created_at) == fecha)
 
     page = request.args.get('page', 1, type=int)
+    page = request.args.get('page', 1, type=int)
     clients = query.paginate(page=page, per_page=20)
+    
+    # Fetch upcoming appointments
+    upcoming_appointments = []
+    if current_user.rol == 'Abogado':
+        now = get_colombia_now()
+        upcoming_appointments = Interaction.query.filter(
+            Interaction.usuario_id == current_user.id,
+            Interaction.tipo == 'Reunión Agendada',
+            Interaction.fecha_hora_cita >= now
+        ).order_by(Interaction.fecha_hora_cita.asc()).all()
 
     
-    return render_template('lawyer/dashboard.html', clients=clients)
+    return render_template('lawyer/dashboard.html', clients=clients, upcoming_appointments=upcoming_appointments)
 
 @lawyer_bp.route('/client/<int:client_id>/save_payment_diagnosis', methods=['POST'])
 @login_required
-@role_required(['Abogado', 'Aliado', 'Analista', 'Admin'])
+@role_required(['Abogado', 'Aliado', 'Admin', 'Radicador'])
 def save_payment_diagnosis(client_id):
 
 
@@ -66,7 +80,7 @@ def save_payment_diagnosis(client_id):
 
 @lawyer_bp.route('/client/<int:client_id>/save_contract_details', methods=['POST'])
 @login_required
-@role_required(['Abogado', 'Aliado', 'Analista', 'Admin'])
+@role_required(['Abogado', 'Aliado', 'Admin', 'Radicador'])
 def save_contract_details(client_id):
 
 

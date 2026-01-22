@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h2 class="fw-bold"><i class="bi bi-bar-chart-line-fill me-2"></i>Reportes Financieros</h2>
+        <p class="text-muted">Desglose de ingresos por método de pago.</p>
+    </div>
+</div>
+
+{% if not report_data %}
+<div class="alert alert-info py-4">
+    <div class="d-flex align-items-center">
+        <i class="bi bi-info-circle fs-3 me-3"></i>
+        <div>
+            <strong>No hay datos financieros registrados.</strong><br>
+            Asegúrese de que existan pagos de diagnóstico o cuotas con estado "Pagado".
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<div class="row g-4">
+    {% for method, data in report_data.items() %}
+    <div class="col-md-6 col-lg-4">
+        <div class="card h-100 shadow-sm border-0">
+            <div
+                class="card-header bg-white border-bottom border-2 border-primary py-3 d-flex justify-content-between align-items-center">
+                <h5 class="card-title fw-bold mb-0 text-primary">{{ method }}</h5>
+                <span class="badge bg-success fs-6 rounded-pill">
+                    $ {{ "{:,.0f}".format(data.total).replace(',', '.') }}
+                </span>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
+                    <table class="table table-striped table-hover mb-0 small">
+                        <thead class="table-light sticky-top">
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Cliente</th>
+                                <th>Tipo</th>
+                                <th class="text-end">Valor</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for tx in data.transactions %}
+                            <tr>
+                                <td class="text-nowrap text-muted">{{ tx.date.strftime('%d/%m/%Y') if tx.date else '-'
+                                    }}</td>
+                                <td title="{{ tx.client }}">
+                                    {% if tx.client_id %}
+                                    <a href="{{ url_for('main.client_detail', client_id=tx.client_id) }}"
+                                        class="text-decoration-none fw-bold text-dark">
+                                        {{ tx.client|truncate(15) }}
+                                    </a>
+                                    {% else %}
+                                    {{ tx.client|truncate(15) }}
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if tx.type == 'Diagnóstico Inicial' %}
+                                    <span
+                                        class="badge bg-info bg-opacity-10 text-info border border-info px-2">Diag</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary bg-opacity-10 text-secondary border px-2">Cta</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-end fw-bold">$ {{ "{:,.0f}".format(tx.amount).replace(',', '.') }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="card-footer bg-light text-center small text-muted">
+                {{ data.transactions|length }} transacciones registradas
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+{% endblock %}

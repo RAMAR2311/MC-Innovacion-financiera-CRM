@@ -74,6 +74,8 @@ class Interaction(db.Model):
     fecha_hora_cita = db.Column(db.DateTime)
     tipo = db.Column(db.String(50)) # 'Asesoría Inicial', 'Explicación Reporte'
 
+    client = db.relationship('Client', backref='interactions')
+
 class Sale(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     cliente_id = db.Column(db.Integer, db.ForeignKey('client.id'), nullable=False)

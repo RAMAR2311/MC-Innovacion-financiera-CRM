@@ -5,6 +5,62 @@
     <h2>Mis Casos</h2>
 </div>
 
+<!-- Appointments Card -->
+{% if current_user.rol == 'Abogado' %}
+<div class="card shadow-sm mb-4 border-start border-4 border-warning">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+        <h5 class="mb-0 fw-bold"><i class="bi bi-calendar-check me-2"></i>Mi Agenda</h5>
+        <span class="badge bg-warning text-dark">{{ upcoming_appointments|length }} Pendientes</span>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+                <thead class="bg-light">
+                    <tr>
+                        <th class="ps-4">Fecha & Hora</th>
+                        <th>Cliente</th>
+                        <th>Acción</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for appt in upcoming_appointments %}
+                    <tr>
+                        <td class="ps-4">
+                            <div class="fw-bold">{{ appt.fecha_hora_cita.strftime('%Y-%m-%d') }}</div>
+                            <div class="small text-muted">{{ appt.fecha_hora_cita.strftime('%I:%M %p') }}</div>
+                        </td>
+                        <td>
+                            <a href="{{ url_for('main.client_detail', client_id=appt.cliente_id) }}"
+                                class="text-decoration-none fw-bold">
+                                {{ appt.client.nombre }}
+                            </a>
+                            <div class="small text-muted">{{ appt.client.tipo_id }} {{ appt.client.numero_id }}</div>
+                        </td>
+                        <td>
+                            <form action="{{ url_for('appointments.cancel_appointment', appointment_id=appt.id) }}"
+                                method="POST" onsubmit="return confirm('¿Cancelar esta cita?');">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                                <button type="submit" class="btn btn-sm btn-outline-danger" title="Cancelar Cita">
+                                    <i class="bi bi-x-lg"></i>
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="3" class="text-center py-4 text-muted">
+                            <i class="bi bi-calendar-x display-6 d-block mb-2 opacity-50"></i>
+                            No tienes reuniones agendadas próximamente.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 <div class="card shadow-sm mb-4">
     <div class="card-header bg-light">
         <h5 class="mb-0">Filtros de Búsqueda</h5>
