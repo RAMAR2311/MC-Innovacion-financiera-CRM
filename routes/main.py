@@ -97,28 +97,43 @@ def client_detail(client_id):
 @login_required
 def upload_file(client_id):
     if 'file' not in request.files:
-        flash('No file part', 'danger')
-        return redirect(request.url)
-    file = request.files['file']
-    if file.filename == '':
-        flash('No selected file', 'danger')
+        flash('No se seleccionaron archivos', 'danger')
         return redirect(request.url)
     
-    if file:
-        try:
-            visible_analyst = False
-            visible_client = False
-            
-            if current_user.rol == 'Abogado':
-                 visible_analyst = 'visible_para_analista' in request.form
-                 visible_client = 'visible_para_cliente' in request.form
-            elif current_user.rol in ['Analista', 'Aliado', 'Radicador']:
-                 visible_analyst = True 
+    files = request.files.getlist('file')
+    if not files or files[0].filename == '':
+        flash('No se seleccionó ningún archivo', 'danger')
+        return redirect(request.url)
+    
+    success_count = 0
+    errors = []
+    
+    try:
+        visible_analyst = False
+        visible_client = False
+        
+        if current_user.rol == 'Abogado':
+            visible_analyst = 'visible_para_analista' in request.form
+            visible_client = 'visible_para_cliente' in request.form
+        elif current_user.rol in ['Analista', 'Aliado', 'Radicador']:
+            visible_analyst = True 
 
-            DocumentService.upload_file(file, client_id, current_user.id, visible_analyst, visible_client)
-            flash('Archivo subido exitosamente', 'success')
-        except Exception as e:
-            flash(f'Error al subir archivo: {str(e)}', 'danger')
+        for file in files:
+            if file and file.filename != '':
+                try:
+                    DocumentService.upload_file(file, client_id, current_user.id, visible_analyst, visible_client)
+                    success_count += 1
+                except Exception as e:
+                    errors.append(f"Error en {file.filename}: {str(e)}")
+        
+        if success_count > 0:
+            flash(f'Se subieron {success_count} archivo(s) exitosamente', 'success')
+        
+        if errors:
+            flash(" ".join(errors), 'warning')
+
+    except Exception as e:
+        flash(f'Error crítico al subir archivos: {str(e)}', 'danger')
 
     return redirect(url_for('main.client_detail', client_id=client_id))
 

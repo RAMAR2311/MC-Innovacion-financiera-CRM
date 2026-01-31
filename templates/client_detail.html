@@ -680,9 +680,11 @@
                                             class="d-inline-block text-start" style="max-width: 400px;">
                                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
                                             <div class="input-group mb-2">
-                                                <input type="file" class="form-control" name="file" required>
+                                                <input type="file" class="form-control" name="file" multiple required>
                                                 <button class="btn btn-primary" type="submit">Subir</button>
                                             </div>
+                                            <small class="text-muted d-block mb-3">Puedes seleccionar varios archivos
+                                                (PDF, PNG, JPG)</small>
                                             {% if current_user.rol == 'Abogado' %}
                                             <div class="d-flex gap-3 justify-content-center">
                                                 <div class="form-check form-check-inline">
