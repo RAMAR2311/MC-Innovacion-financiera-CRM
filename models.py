@@ -18,8 +18,9 @@ class User(UserMixin, db.Model):
     payments = db.relationship('AllyPayment', backref='ally', lazy=True)
 
 class ClientStatus:
+    PROSPECTO = 'Prospecto'
     NUEVO = 'Nuevo'
-    INFORMACION_INCOMPLETA = 'Informacion_Incompleta'
+    INFORMACION_INCOMPLETA = 'Informacion_Incompleta' # Obsoleto. Usar PROSPECTO para nuevos registros.
     PENDIENTE_ANALISIS = 'Pendiente_Analisis'
     CON_CONTRATO = 'Con_Contrato'
     CON_ANALISIS = 'Con_Analisis'

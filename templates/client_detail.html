@@ -139,11 +139,28 @@
                     </span>
 
                     <div class="d-grid gap-2">
+                        {% if client.estado == 'Prospecto' %}
+                        <div class="alert alert-info small py-2 mb-3">
+                            <i class="bi bi-info-circle me-1"></i> Cliente en estado Prospecto. Completa la información
+                            para activarlo.
+                        </div>
+                        {% endif %}
+
                         <button class="btn btn-outline-primary btn-sm" data-bs-toggle="modal"
                             data-bs-target="#editGeneralInfoModal">
                             <i class="bi bi-pencil-square"></i> Editar Perfil
                         </button>
-                        {% if current_user.rol in ['Analista', 'Aliado', 'Abogado', 'Admin', 'Radicador'] %}
+
+                        <!-- Show "Complete Info" manually for all Prospects -->
+                        {% if client.estado == 'Prospecto' %}
+                        <button class="btn btn-success btn-sm mt-2" data-bs-toggle="modal"
+                            data-bs-target="#completeInfoModal">
+                            <i class="bi bi-check-circle"></i> Activar Cliente
+                        </button>
+                        {% endif %}
+
+                        {% if current_user.rol in ['Analista', 'Aliado', 'Abogado', 'Admin', 'Radicador'] and
+                        client.estado != 'Prospecto' %}
                         <button class="btn btn-outline-warning btn-sm" data-bs-toggle="modal"
                             data-bs-target="#appointmentModal">
                             <i class="bi bi-calendar-plus"></i> Agendar Cita
@@ -168,7 +185,7 @@
                 </div>
 
                 <!-- Status Actions -->
-                {% if current_user.rol in ['Admin', 'Abogado'] %}
+                {% if current_user.rol in ['Admin', 'Abogado'] and client.estado != 'Prospecto' %}
                 <div class="dashboard-card p-3 mb-3">
                     <h6 class="fw-bold border-bottom pb-2 mb-3">Cambiar Estado</h6>
                     <form action="{{ url_for('main.update_status', client_id=client.id) }}" method="POST">
@@ -208,7 +225,7 @@
                 </div>
                 {% endif %}
 
-                {% if current_user.rol in ['Admin', 'Abogado'] %}
+                {% if current_user.rol in ['Admin', 'Abogado'] and client.estado != 'Prospecto' %}
                 <div class="dashboard-card p-3 mb-3">
                     <h6 class="fw-bold border-bottom pb-2 mb-3">Asignar Radicador</h6>
                     <form action="{{ url_for('main.assign_radicador', client_id=client.id) }}" method="POST">
@@ -759,6 +776,83 @@
     </div>
 </div>
 
+<!-- Modal Complete Info (Prospecto -> Nuevo) -->
+<div class="modal fade" id="completeInfoModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1"
+    aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content border-warning">
+            <div class="modal-header bg-warning text-dark">
+                <h5 class="modal-title fw-bold"><i class="bi bi-exclamation-triangle-fill me-2"></i>Completar
+                    Información</h5>
+            </div>
+            <form action="{{ url_for('main.edit_client', client_id=client.id) }}" method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                <input type="hidden" name="promote_to_new" value="1" />
+
+                <div class="modal-body p-4">
+                    <div class="alert alert-info small mb-3">
+                        El pago ha sido verificado. Para activar el cliente, por favor completa los siguientes datos
+                        obligatorios.
+                    </div>
+
+                    <div class="row g-2">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label small fw-bold">Tipo ID</label>
+                            <select class="form-select" name="tipo_id" required>
+                                <option value="" selected disabled>Seleccionar...</option>
+                                <option value="CC" {% if client.tipo_id=='CC' %}selected{% endif %}>Cédula de Ciudadanía
+                                </option>
+                                <option value="CE" {% if client.tipo_id=='CE' %}selected{% endif %}>Cédula de
+                                    Extranjería</option>
+                                <option value="NIT" {% if client.tipo_id=='NIT' %}selected{% endif %}>NIT</option>
+                                <option value="Pasaporte" {% if client.tipo_id=='Pasaporte' %}selected{% endif %}>
+                                    Pasaporte</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label small fw-bold">Número ID</label>
+                            <input type="text" class="form-control" name="numero_id"
+                                value="{{ client.numero_id or '' }}" required>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">Nombre Completo</label>
+                        <input type="text" class="form-control" name="nombre" value="{{ client.nombre }}" required>
+                    </div>
+
+                    <div class="row g-2">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label small fw-bold">Teléfono</label>
+                            <input type="text" class="form-control" name="telefono" value="{{ client.telefono }}"
+                                required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label small fw-bold">Ciudad</label>
+                            <input type="text" class="form-control" name="ciudad" value="{{ client.ciudad or '' }}"
+                                required>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">Email</label>
+                        <input type="email" class="form-control" name="email" value="{{ client.email or '' }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">N° Contrato (Opcional)</label>
+                        <input type="text" class="form-control" name="contract_number"
+                            value="{{ client.contract_number or '' }}">
+                    </div>
+
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-success w-100">Guardar y Activar Cliente</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <!-- Modal Edit Profile -->
 <div class="modal fade" id="editGeneralInfoModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">
@@ -769,28 +863,62 @@
             </div>
             <form action="{{ url_for('main.edit_client', client_id=client.id) }}" method="POST">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-                <div class="modal-body p-4">
+                <div class="modal-body">
                     <div class="mb-3">
-                        <label class="form-label">Nombre</label>
+                        <label class="form-label">Nombre Completo</label>
                         <input type="text" class="form-control" name="nombre" value="{{ client.nombre }}" required>
                     </div>
+
                     <div class="mb-3">
                         <label class="form-label">Teléfono</label>
                         <input type="text" class="form-control" name="telefono" value="{{ client.telefono }}" required>
                     </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Número de Contrato</label>
+                        <input type="text" class="form-control" name="contract_number"
+                            value="{{ client.contract_number or '' }}">
+                    </div>
+
+                    <div class="row g-2 mb-3">
+                        <div class="col-6">
+                            <label class="form-label">Tipo ID</label>
+                            <select class="form-select" name="tipo_id">
+                                <option value="CC" {% if client.tipo_id=='CC' %}selected{% endif %}>Cédula de Ciudadanía
+                                </option>
+                                <option value="CE" {% if client.tipo_id=='CE' %}selected{% endif %}>Cédula de
+                                    Extranjería</option>
+                                <option value="NIT" {% if client.tipo_id=='NIT' %}selected{% endif %}>NIT</option>
+                                <option value="Pasaporte" {% if client.tipo_id=='Pasaporte' %}selected{% endif %}>
+                                    Pasaporte</option>
+                            </select>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label">Número ID</label>
+                            <input type="text" class="form-control" name="numero_id" value="{{ client.numero_id }}">
+                        </div>
+                    </div>
+
                     <div class="mb-3">
                         <label class="form-label">Email</label>
                         <input type="email" class="form-control" name="email" value="{{ client.email }}">
                     </div>
+
                     <div class="mb-3">
-                        <label class="form-label">N° Contrato</label>
-                        <input type="text" class="form-control" name="contract_number"
-                            value="{{ client.contract_number or '' }}">
+                        <label class="form-label">Ciudad</label>
+                        <input type="text" class="form-control" name="ciudad" value="{{ client.ciudad }}">
                     </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Motivo de Consulta</label>
+                        <textarea class="form-control" name="motivo_consulta"
+                            rows="3">{{ client.motivo_consulta or '' }}</textarea>
+                    </div>
+
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary">Guardar</button>
+                    <button type="submit" class="btn btn-primary">Guardar Cambios</button>
                 </div>
             </form>
         </div>
@@ -1070,4 +1198,13 @@
 </div>
 {% endif %}
 
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        var completionRequired = "{{ 'true' if completion_required else 'false' }}" === 'true';
+        if (completionRequired) {
+            var completeModal = new bootstrap.Modal(document.getElementById('completeInfoModal'));
+            completeModal.show();
+        }
+    });
+</script>
 {% endblock %}

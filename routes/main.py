@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request, send_from_directory, current_app, jsonify
 from flask_login import login_required, logout_user, current_user
-from models import db, Client, CaseMessage, ClientNote, ContractInstallment, Document, User
+from models import db, Client, CaseMessage, ClientNote, ContractInstallment, Document, User, ClientStatus
 from services.financial_service import FinancialService
 from services.document_service import DocumentService
 from services.client_service import ClientService
@@ -87,7 +87,11 @@ def client_detail(client_id):
     if current_user.rol in ['Abogado', 'Admin']:
         radicadores = User.query.filter_by(rol='Radicador').all()
 
-    return render_template('client_detail.html', client=client, files=files, documents=documents, messages=messages, notes=notes, radicadores=radicadores)
+    # Verify if Prospect needs to complete info
+    # Modified: Auto-popup disabled by request. User triggers activation manually via button.
+    completion_required = False
+
+    return render_template('client_detail.html', client=client, files=files, documents=documents, messages=messages, notes=notes, radicadores=radicadores, completion_required=completion_required)
 
 @main_bp.route('/client/<int:client_id>/upload', methods=['POST'])
 @login_required
@@ -205,18 +209,38 @@ def edit_client(client_id):
         flash('No autorizado', 'danger')
         return redirect(url_for('main.index'))
 
+    # RBAC Strict for editing Active Clients
+    if client.estado != ClientStatus.PROSPECTO and current_user.rol != 'Admin':
+        flash("Acción denegada: Solo el Administrador puede modificar datos de clientes activos.", 'danger')
+        return redirect(url_for('main.client_detail', client_id=client_id))
+
     # Use ClientService if possible, or keep simple update here. 
     # For now, let's keep it here but standard.
-    client.nombre = request.form.get('nombre')
-    client.telefono = request.form.get('telefono')
-    client.email = request.form.get('email')
-    client.tipo_id = request.form.get('tipo_id')
-    client.numero_id = request.form.get('numero_id')
-    client.ciudad = request.form.get('ciudad')
-    client.contract_number = request.form.get('contract_number')
+    # Update fields only if present in the form request to allow partial updates
+    if 'nombre' in request.form:
+        client.nombre = request.form['nombre']
+    if 'telefono' in request.form:
+        client.telefono = request.form['telefono']
+    if 'email' in request.form:
+        client.email = request.form['email']
+    if 'tipo_id' in request.form:
+        client.tipo_id = request.form['tipo_id']
+    if 'numero_id' in request.form:
+        client.numero_id = request.form['numero_id']
+    if 'ciudad' in request.form:
+        client.ciudad = request.form['ciudad']
+    if 'contract_number' in request.form:
+        val = request.form['contract_number'].strip()
+        client.contract_number = val if val else None
     
+    # Logic to Promote Prospecto -> Nuevo
+    if request.form.get('promote_to_new') == '1' and client.estado == ClientStatus.PROSPECTO:
+        client.estado = ClientStatus.NUEVO
+        flash('Cliente activado exitosamente. Estado actualizado a Nuevo.', 'success')
+    else:
+        flash('Información del cliente actualizada', 'success')
+
     db.session.commit()
-    flash('Información del cliente actualizada', 'success')
     return redirect(url_for('main.client_detail', client_id=client_id))
 
 @main_bp.route('/client/<int:client_id>/add_note', methods=['POST'])

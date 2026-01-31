@@ -40,7 +40,13 @@ def get_slots(client_id):
     lawyer_id = client.abogado_id
     
     if not lawyer_id:
-        return jsonify([]) # No lawyer assigned, can't book
+        # Si el cliente es huérfano, usamos temporalmente al primer abogado disponible para mostrar horarios
+        default_lawyer = User.query.filter_by(rol='Abogado').first()
+        if default_lawyer:
+            lawyer_id = default_lawyer.id
+        else:
+            # Solo si no existen abogados en todo el sistema devolvemos vacío
+            return jsonify([])
 
     # Define Slots based on Role
     # CASE A: Client -> Afternoons
@@ -116,8 +122,15 @@ def book_appointment(client_id):
         
     lawyer_id = client.abogado_id
     if not lawyer_id:
-        flash('No hay abogado asignado para agendar.', 'danger')
-        return redirect(request.referrer)
+        # Auto-Recuperación: Asignar abogado por defecto si no tiene
+        default_lawyer = User.query.filter_by(rol='Abogado').first()
+        if default_lawyer:
+            client.abogado_id = default_lawyer.id
+            db.session.commit()
+            lawyer_id = default_lawyer.id
+        else:
+            flash('No hay abogado asignado para agendar y no hay abogados disponibles en el sistema.', 'danger')
+            return redirect(request.referrer)
         
     # Double check availability (Race condition check)
     existing = Interaction.query.filter_by(

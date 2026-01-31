@@ -169,3 +169,49 @@ def reports():
         })
         
     return render_template('admin/reports.html', report_data=report_data)
+
+@admin_bp.route('/admin/import_clients', methods=['POST'])
+@login_required
+@role_required(['Admin', 'Analista', 'Aliado'])
+def import_clients():
+    if 'file' not in request.files:
+        flash('No se seleccionó ningún archivo', 'danger')
+        return _redirect_after_import()
+        
+    file = request.files['file']
+    if file.filename == '':
+        flash('No se seleccionó ningún archivo', 'danger')
+        return _redirect_after_import()
+        
+    if not file.filename.endswith('.xlsx'):
+        flash('Formato inválido. Solo se permiten archivos Excel (.xlsx)', 'danger')
+        return _redirect_after_import()
+        
+    try:
+        result = ClientService.bulk_import(file, current_user.id)
+        
+        if result['success_count'] > 0:
+            flash(f"Se cargaron {result['success_count']} clientes exitosamente.", 'success')
+            
+        if result['errors']:
+            # Display errors. Limit to first 10 to avoid huge flash messages if many fail
+            error_msg = "No se pudieron cargar algunos clientes:<br>" + "<br>".join(result['errors'][:10])
+            if len(result['errors']) > 10:
+                error_msg += f"<br>... y {len(result['errors']) - 10} errores más."
+            flash(error_msg, 'warning')
+            
+        if result['success_count'] == 0 and not result['errors']:
+             flash("El archivo no contenía registros válidos o estaba vacío.", 'warning')
+
+    except Exception as e:
+        flash(f"Error crítico en la importación: {str(e)}", 'danger')
+        
+    return _redirect_after_import()
+
+def _redirect_after_import():
+    """Helper to redirect back to the correct dashboard based on role."""
+    if current_user.rol == 'Analista':
+        return redirect(url_for('analyst.analyst_dashboard'))
+    elif current_user.rol == 'Aliado':
+        return redirect(url_for('aliados.aliados_dashboard'))
+    return redirect(url_for('admin.admin_dashboard'))
