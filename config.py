@@ -9,4 +9,5 @@ class Config:
     if not SQLALCHEMY_DATABASE_URI:
         raise ValueError("No DATABASE_URL set for Flask application")
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+    SQLALCHEMY_ENGINE_OPTIONS = {"pool_pre_ping": True}
     UPLOAD_FOLDER = 'uploads'

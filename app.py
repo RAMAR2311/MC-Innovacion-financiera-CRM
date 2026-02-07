@@ -20,14 +20,14 @@ csrf = CSRFProtect(app)
 @app.errorhandler(CSRFError)
 def handle_csrf_error(e):
     flash('Sesión expirada o token inválido. Por favor, intenta nuevamente.', 'danger')
-    return redirect(url_for('login'))
+    return redirect(url_for('auth.login'))
 
 db.init_app(app)
 migrate = Migrate(app, db) # Initialize Flask-Migrate
 
 login_manager = LoginManager()
 login_manager.init_app(app)
-login_manager.login_view = 'login'
+login_manager.login_view = 'auth.login'
 
 @login_manager.user_loader
 def load_user(user_id):

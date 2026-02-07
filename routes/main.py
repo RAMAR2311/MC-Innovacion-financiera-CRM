@@ -88,8 +88,9 @@ def client_detail(client_id):
         radicadores = User.query.filter_by(rol='Radicador').all()
 
     # Verify if Prospect needs to complete info
-    # Modified: Auto-popup disabled by request. User triggers activation manually via button.
     completion_required = False
+    if client.estado == ClientStatus.PROSPECTO and client.payment_diagnosis and client.payment_diagnosis.verificado:
+        completion_required = True
 
     return render_template('client_detail.html', client=client, files=files, documents=documents, messages=messages, notes=notes, radicadores=radicadores, completion_required=completion_required)
 
@@ -226,7 +227,7 @@ def edit_client(client_id):
 
     # RBAC Strict for editing Active Clients
     if client.estado != ClientStatus.PROSPECTO and current_user.rol != 'Admin':
-        flash("Acción denegada: Solo el Administrador puede modificar datos de clientes activos.", 'danger')
+        flash("Solo el administrador puede modificar datos de clientes activos", 'danger')
         return redirect(url_for('main.client_detail', client_id=client_id))
 
     # Use ClientService if possible, or keep simple update here. 
