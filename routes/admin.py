@@ -4,6 +4,8 @@ from models import db, User, Client, PaymentDiagnosis, ContractInstallment, Paym
 from services.user_service import UserService
 
 from services.client_service import ClientService
+from services.document_service import DocumentService
+from services.financial_service import FinancialService
 from utils.decorators import role_required
 
 
@@ -99,6 +101,30 @@ def delete_client(client_id):
         flash('Cliente y todos sus registros eliminados exitosamente.', 'success')
     except Exception as e:
         flash(f'Error al eliminar cliente: {str(e)}', 'danger')
+        
+    return redirect(request.referrer or url_for('main.index'))
+
+@admin_bp.route('/admin/delete_document/<int:doc_id>', methods=['POST'])
+@login_required
+@role_required(['Admin'])
+def delete_document(doc_id):
+    try:
+        DocumentService.delete_document(doc_id)
+        flash('Documento eliminado exitosamente.', 'success')
+    except Exception as e:
+        flash(f'Error al eliminar documento: {str(e)}', 'danger')
+        
+    return redirect(request.referrer or url_for('main.index'))
+
+@admin_bp.route('/admin/delete_obligation/<int:obligation_id>', methods=['POST'])
+@login_required
+@role_required(['Admin'])
+def delete_obligation(obligation_id):
+    try:
+        FinancialService.delete_obligation(obligation_id)
+        flash('Obligación financiera eliminada exitosamente.', 'success')
+    except Exception as e:
+        flash(f'Error al eliminar obligación: {str(e)}', 'danger')
         
     return redirect(request.referrer or url_for('main.index'))
 

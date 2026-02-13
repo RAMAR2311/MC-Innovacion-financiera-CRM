@@ -121,3 +121,13 @@ class FinancialService:
             db.session.commit()
             return obligation
         return None
+
+    @staticmethod
+    def delete_obligation(obligation_id):
+        """
+        Deletes a financial obligation record.
+        """
+        obligation = FinancialObligation.query.get_or_404(obligation_id)
+        db.session.delete(obligation)
+        db.session.commit()
+        return True

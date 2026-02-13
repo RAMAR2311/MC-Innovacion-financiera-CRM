@@ -67,3 +67,26 @@ class DocumentService:
             query = query.filter_by(visible_para_cliente=True)
             
         return query.order_by(Document.created_at.desc()).all()
+
+    @staticmethod
+    def delete_document(doc_id):
+        """
+        Deletes a document record from DB and the physical file.
+        """
+        doc = Document.query.get_or_404(doc_id)
+        
+        # Construct full path
+        upload_folder = current_app.config['UPLOAD_FOLDER']
+        file_path = os.path.join(upload_folder, doc.filename)
+        
+        # Delete physical file if exists
+        if os.path.exists(file_path):
+            try:
+                os.remove(file_path)
+            except Exception as e:
+                # Log error but continue to delete form DB
+                print(f"Error checking/deleting file {file_path}: {e}")
+        
+        db.session.delete(doc)
+        db.session.commit()
+        return True
