@@ -18,7 +18,8 @@ def admin_dashboard():
 
     page = request.args.get('page', 1, type=int)
     users = User.query.paginate(page=page, per_page=20)
-    return render_template('admin/dashboard.html', users=users)
+    all_analysts = User.query.filter(User.rol.in_(['Analista', 'Aliado', 'Admin'])).all()
+    return render_template('admin/dashboard.html', users=users, all_analysts=all_analysts)
 
 
 @admin_bp.route('/admin/create_user', methods=['POST'])
@@ -34,6 +35,37 @@ def create_user():
         flash(str(e), 'warning')
     except Exception as e:
         flash(f'Error al crear usuario: {str(e)}', 'danger')
+
+    return redirect(url_for('admin.admin_dashboard'))
+
+@admin_bp.route('/admin/reassign_analyst', methods=['POST'])
+@login_required
+@role_required(['Admin'])
+def reassign_analyst():
+    old_analyst_id = request.form.get('old_analyst_id')
+    new_analyst_id = request.form.get('new_analyst_id')
+
+    if not old_analyst_id or not new_analyst_id:
+        flash('Debes seleccionar ambos analistas.', 'warning')
+        return redirect(url_for('admin.admin_dashboard'))
+
+    if old_analyst_id == new_analyst_id:
+        flash('El analista de origen y destino deben ser diferentes.', 'warning')
+        return redirect(url_for('admin.admin_dashboard'))
+
+    try:
+        # Bulk update for efficiency
+        affected_rows = Client.query.filter_by(analista_id=old_analyst_id).update({Client.analista_id: new_analyst_id})
+        db.session.commit()
+        
+        if affected_rows > 0:
+            flash(f'Se reasignaron exitosamente {affected_rows} clientes.', 'success')
+        else:
+            flash('El analista de origen no tenía clientes asignados.', 'info')
+
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error durante la reasignación: {str(e)}', 'danger')
 
     return redirect(url_for('admin.admin_dashboard'))
 

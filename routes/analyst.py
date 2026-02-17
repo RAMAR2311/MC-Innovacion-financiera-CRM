@@ -1,7 +1,7 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request
 from flask_login import login_required, current_user
 from models import db, User, Client
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from utils.decorators import role_required
 
 
@@ -51,7 +51,14 @@ def analyst_dashboard():
         query = query.filter(Client.analista_id == current_user.id)
 
     if nombre:
-        query = query.filter(Client.nombre.ilike(f'%{nombre}%'))
+        search_term = f'%{nombre}%'
+        query = query.filter(
+            or_(
+                Client.nombre.ilike(search_term),
+                Client.telefono.ilike(search_term),
+                Client.numero_id.ilike(search_term)
+            )
+        )
     
     if status:
         query = query.filter(Client.estado == status)

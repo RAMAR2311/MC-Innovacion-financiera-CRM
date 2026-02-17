@@ -7,6 +7,9 @@
         <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#importClientsModal">
             <i class="bi bi-file-earmark-excel"></i> Importar Clientes
         </button>
+        <button type="button" class="btn btn-warning text-white" data-bs-toggle="modal" data-bs-target="#reassignModal">
+            <i class="bi bi-arrow-left-right"></i> Reasignación Masiva
+        </button>
         <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createUserModal">
             Crear Nuevo Usuario
         </button>
@@ -164,6 +167,56 @@
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
                     <button type="submit" class="btn btn-success">Cargar Clientes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<!-- Modal Reasignacion Masiva -->
+<div class="modal fade" id="reassignModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-warning text-white">
+                <h5 class="modal-title"><i class="bi bi-arrow-left-right me-2"></i>Reasignación Masiva de Clientes</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{{ url_for('admin.reassign_analyst') }}" method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="modal-body">
+                    <div class="alert alert-warning small">
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                        <strong>Atención:</strong> Esta acción moverá <b>TODOS</b> los clientes del "Analista Origen" al
+                        "Analista Destino". Es irreversible.
+                    </div>
+                    <div class="mb-3">
+                        <label for="old_analyst_id" class="form-label fw-bold">Analista Origen (A quién le
+                            quitamos)</label>
+                        <select class="form-select" id="old_analyst_id" name="old_analyst_id" required>
+                            <option value="" selected disabled>Seleccione un usuario...</option>
+                            {% for analyst in all_analysts %}
+                            <option value="{{ analyst.id }}">{{ analyst.nombre_completo }} ({{ analyst.rol }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3 text-center">
+                        <i class="bi bi-arrow-down fs-3 text-muted"></i>
+                    </div>
+                    <div class="mb-3">
+                        <label for="new_analyst_id" class="form-label fw-bold">Analista Destino (Quién los
+                            recibe)</label>
+                        <select class="form-select" id="new_analyst_id" name="new_analyst_id" required>
+                            <option value="" selected disabled>Seleccione un usuario...</option>
+                            {% for analyst in all_analysts %}
+                            <option value="{{ analyst.id }}">{{ analyst.nombre_completo }} ({{ analyst.rol }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-warning text-white"
+                        onclick="return confirm('¿Estás seguro de realizar esta transferencia masiva?');">Transferir
+                        Clientes</button>
                 </div>
             </form>
         </div>
