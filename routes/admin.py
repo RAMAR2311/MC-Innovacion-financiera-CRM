@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request
 from flask_login import login_required, current_user
-from models import db, User, Client, PaymentDiagnosis, ContractInstallment, PaymentContract
+from models import db, User, Client, PaymentDiagnosis, ContractInstallment, PaymentContract, Document, ClientNote, CaseMessage, Interaction
 from services.user_service import UserService
 
 from services.client_service import ClientService
@@ -55,13 +55,30 @@ def reassign_analyst():
 
     try:
         # Bulk update for efficiency
-        affected_rows = Client.query.filter_by(analista_id=old_analyst_id).update({Client.analista_id: new_analyst_id})
+        
+        # 1. Clientes
+        clients_updated = Client.query.filter_by(analista_id=old_analyst_id).update({Client.analista_id: new_analyst_id})
+        
+        # 2. Documentos
+        docs_updated = Document.query.filter_by(uploaded_by_id=old_analyst_id).update({Document.uploaded_by_id: new_analyst_id})
+        
+        # 3. Notas
+        notes_updated = ClientNote.query.filter_by(author_id=old_analyst_id).update({ClientNote.author_id: new_analyst_id})
+        
+        # 4. Mensajes Caso
+        msgs_updated = CaseMessage.query.filter_by(sender_id=old_analyst_id).update({CaseMessage.sender_id: new_analyst_id})
+        
+        # 5. Interacciones
+        interactions_updated = Interaction.query.filter_by(usuario_id=old_analyst_id).update({Interaction.usuario_id: new_analyst_id})
+
         db.session.commit()
         
-        if affected_rows > 0:
-            flash(f'Se reasignaron exitosamente {affected_rows} clientes.', 'success')
+        total_ops = clients_updated + docs_updated + notes_updated + msgs_updated + interactions_updated
+        
+        if total_ops > 0:
+            flash(f'Reasignación Profunda Completada. Clientes: {clients_updated}, Docs: {docs_updated}, Notas: {notes_updated}, Msjs: {msgs_updated}, Interacciones: {interactions_updated}.', 'success')
         else:
-            flash('El analista de origen no tenía clientes asignados.', 'info')
+            flash('El analista de origen no tenía registros asignados en ninguna categoría.', 'info')
 
     except Exception as e:
         db.session.rollback()
