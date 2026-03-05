@@ -19,7 +19,8 @@ def admin_dashboard():
     page = request.args.get('page', 1, type=int)
     users = User.query.paginate(page=page, per_page=20)
     all_analysts = User.query.filter(User.rol.in_(['Analista', 'Aliado', 'Admin'])).all()
-    return render_template('admin/dashboard.html', users=users, all_analysts=all_analysts)
+    all_clients = Client.query.order_by(Client.nombre).all()
+    return render_template('admin/dashboard.html', users=users, all_analysts=all_analysts, all_clients=all_clients)
 
 
 @admin_bp.route('/admin/create_user', methods=['POST'])
@@ -44,41 +45,72 @@ def create_user():
 def reassign_analyst():
     old_analyst_id = request.form.get('old_analyst_id')
     new_analyst_id = request.form.get('new_analyst_id')
+    client_id = request.form.get('client_id')
+    massive_reassign = request.form.get('massive_reassign')
 
-    if not old_analyst_id or not new_analyst_id:
-        flash('Debes seleccionar ambos analistas.', 'warning')
-        return redirect(url_for('admin.admin_dashboard'))
-
-    if old_analyst_id == new_analyst_id:
-        flash('El analista de origen y destino deben ser diferentes.', 'warning')
+    if not new_analyst_id:
+        flash('Debes seleccionar el analista destino.', 'warning')
         return redirect(url_for('admin.admin_dashboard'))
 
     try:
-        # Bulk update for efficiency
-        
-        # 1. Clientes
-        clients_updated = Client.query.filter_by(analista_id=old_analyst_id).update({Client.analista_id: new_analyst_id})
-        
-        # 2. Documentos
-        docs_updated = Document.query.filter_by(uploaded_by_id=old_analyst_id).update({Document.uploaded_by_id: new_analyst_id})
-        
-        # 3. Notas
-        notes_updated = ClientNote.query.filter_by(author_id=old_analyst_id).update({ClientNote.author_id: new_analyst_id})
-        
-        # 4. Mensajes Caso
-        msgs_updated = CaseMessage.query.filter_by(sender_id=old_analyst_id).update({CaseMessage.sender_id: new_analyst_id})
-        
-        # 5. Interacciones
-        interactions_updated = Interaction.query.filter_by(usuario_id=old_analyst_id).update({Interaction.usuario_id: new_analyst_id})
+        if massive_reassign:
+            # Reasignación masiva
+            if not old_analyst_id:
+                flash('Debes seleccionar el analista origen.', 'warning')
+                return redirect(url_for('admin.admin_dashboard'))
 
-        db.session.commit()
-        
-        total_ops = clients_updated + docs_updated + notes_updated + msgs_updated + interactions_updated
-        
-        if total_ops > 0:
-            flash(f'Reasignación Profunda Completada. Clientes: {clients_updated}, Docs: {docs_updated}, Notas: {notes_updated}, Msjs: {msgs_updated}, Interacciones: {interactions_updated}.', 'success')
+            if old_analyst_id == new_analyst_id:
+                flash('El analista de origen y destino deben ser diferentes.', 'warning')
+                return redirect(url_for('admin.admin_dashboard'))
+
+            # Bulk update for efficiency
+            # 1. Clientes
+            clients_updated = Client.query.filter_by(analista_id=old_analyst_id).update({Client.analista_id: new_analyst_id})
+            # 2. Documentos
+            docs_updated = Document.query.filter_by(uploaded_by_id=old_analyst_id).update({Document.uploaded_by_id: new_analyst_id})
+            # 3. Notas
+            notes_updated = ClientNote.query.filter_by(author_id=old_analyst_id).update({ClientNote.author_id: new_analyst_id})
+            # 4. Mensajes Caso
+            msgs_updated = CaseMessage.query.filter_by(sender_id=old_analyst_id).update({CaseMessage.sender_id: new_analyst_id})
+            # 5. Interacciones
+            interactions_updated = Interaction.query.filter_by(usuario_id=old_analyst_id).update({Interaction.usuario_id: new_analyst_id})
+
+            db.session.commit()
+            
+            total_ops = clients_updated + docs_updated + notes_updated + msgs_updated + interactions_updated
+            
+            if total_ops > 0:
+                flash(f'Reasignación Profunda Completada. Clientes: {clients_updated}, Docs: {docs_updated}, Notas: {notes_updated}, Msjs: {msgs_updated}, Interacciones: {interactions_updated}.', 'success')
+            else:
+                flash('El analista de origen no tenía registros asignados en ninguna categoría.', 'info')
+
         else:
-            flash('El analista de origen no tenía registros asignados en ninguna categoría.', 'info')
+            # Reasignación de un solo cliente
+            if not client_id:
+                flash('Debes seleccionar un cliente para reasignar.', 'warning')
+                return redirect(url_for('admin.admin_dashboard'))
+
+            client = Client.query.get(client_id)
+            if not client:
+                flash('Cliente no encontrado.', 'danger')
+                return redirect(url_for('admin.admin_dashboard'))
+
+            old_analyst_id = client.analista_id
+            
+            if str(old_analyst_id) == str(new_analyst_id):
+                flash('El cliente ya está asignado a este analista.', 'warning')
+                return redirect(url_for('admin.admin_dashboard'))
+
+            client.analista_id = new_analyst_id
+
+            if old_analyst_id:
+                Document.query.filter_by(client_id=client_id, uploaded_by_id=old_analyst_id).update({Document.uploaded_by_id: new_analyst_id})
+                ClientNote.query.filter_by(client_id=client_id, author_id=old_analyst_id).update({ClientNote.author_id: new_analyst_id})
+                CaseMessage.query.filter_by(client_id=client_id, sender_id=old_analyst_id).update({CaseMessage.sender_id: new_analyst_id})
+                Interaction.query.filter_by(cliente_id=client_id, usuario_id=old_analyst_id).update({Interaction.usuario_id: new_analyst_id})
+
+            db.session.commit()
+            flash(f'Cliente "{client.nombre}" reasignado exitosamente.', 'success')
 
     except Exception as e:
         db.session.rollback()
