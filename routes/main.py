@@ -84,17 +84,17 @@ def client_detail(client_id):
     notes = ClientNote.query.filter_by(client_id=client_id).order_by(ClientNote.timestamp.desc()).all()
 
     radicadores = []
-    all_analysts = []
+    all_users = []
     if current_user.rol in ['Abogado', 'Admin']:
         radicadores = User.query.filter_by(rol='Radicador').all()
-        all_analysts = User.query.filter(User.rol.in_(['Analista', 'Aliado', 'Admin'])).all()
+        all_users = User.query.filter(User.rol != 'Cliente').all()
 
     # Verify if Prospect needs to complete info
     completion_required = False
     if client.estado == ClientStatus.PROSPECTO and client.payment_diagnosis and client.payment_diagnosis.verificado:
         completion_required = True
 
-    return render_template('client_detail.html', client=client, files=files, documents=documents, messages=messages, notes=notes, radicadores=radicadores, all_analysts=all_analysts, completion_required=completion_required)
+    return render_template('client_detail.html', client=client, files=files, documents=documents, messages=messages, notes=notes, radicadores=radicadores, all_users=all_users, completion_required=completion_required)
 
 @main_bp.route('/client/<int:client_id>/upload', methods=['POST'])
 @login_required
@@ -331,28 +331,47 @@ def assign_radicador(client_id):
     
     return redirect(url_for('main.client_detail', client_id=client_id))
 
-@main_bp.route('/client/<int:client_id>/assign_analyst', methods=['POST'])
+@main_bp.route('/client/<int:client_id>/reassign_user', methods=['POST'])
 @login_required
 @role_required(['Abogado', 'Admin'])
-def assign_analyst(client_id):
+def reassign_user(client_id):
     client = Client.query.get_or_404(client_id)
-    new_analyst_id = request.form.get('new_analyst_id')
+    new_user_id = request.form.get('new_user_id')
     
-    if new_analyst_id:
-        old_analyst_id = client.analista_id
-        if str(old_analyst_id) == str(new_analyst_id):
-            flash('El cliente ya está asignado a este analista.', 'warning')
-        else:
-            client.analista_id = new_analyst_id
-            if old_analyst_id:
-                Document.query.filter_by(client_id=client_id, uploaded_by_id=old_analyst_id).update({Document.uploaded_by_id: new_analyst_id})
-                ClientNote.query.filter_by(client_id=client_id, author_id=old_analyst_id).update({ClientNote.author_id: new_analyst_id})
-                CaseMessage.query.filter_by(client_id=client_id, sender_id=old_analyst_id).update({CaseMessage.sender_id: new_analyst_id})
-                # Interaction model not imported here directly so skipping or import it:
-                from models import Interaction
-                Interaction.query.filter_by(cliente_id=client_id, usuario_id=old_analyst_id).update({Interaction.usuario_id: new_analyst_id})
+    if new_user_id:
+        new_user = User.query.get(new_user_id)
+        if not new_user:
+            flash('Usuario destino invalido.', 'danger')
+            return redirect(url_for('main.client_detail', client_id=client_id))
 
-            db.session.commit()
-            flash('Analista reasignado exitosamente, y sus registros fueron transferidos.', 'success')
+        old_user_id = None
+        if new_user.rol == 'Abogado':
+            old_user_id = client.abogado_id
+            if str(old_user_id) == str(new_user_id):
+                flash('El cliente ya está asignado a este abogado.', 'warning')
+                return redirect(url_for('main.client_detail', client_id=client_id))
+            client.abogado_id = new_user_id
+        elif new_user.rol == 'Radicador':
+            old_user_id = client.radicador_id
+            if str(old_user_id) == str(new_user_id):
+                flash('El cliente ya está asignado a este radicador.', 'warning')
+                return redirect(url_for('main.client_detail', client_id=client_id))
+            client.radicador_id = new_user_id
+        else:
+            old_user_id = client.analista_id
+            if str(old_user_id) == str(new_user_id):
+                flash('El cliente ya está asignado a este usuario.', 'warning')
+                return redirect(url_for('main.client_detail', client_id=client_id))
+            client.analista_id = new_user_id
+
+        if old_user_id:
+            Document.query.filter_by(client_id=client_id, uploaded_by_id=old_user_id).update({Document.uploaded_by_id: new_user_id})
+            ClientNote.query.filter_by(client_id=client_id, author_id=old_user_id).update({ClientNote.author_id: new_user_id})
+            CaseMessage.query.filter_by(client_id=client_id, sender_id=old_user_id).update({CaseMessage.sender_id: new_user_id})
+            from models import Interaction
+            Interaction.query.filter_by(cliente_id=client_id, usuario_id=old_user_id).update({Interaction.usuario_id: new_user_id})
+
+        db.session.commit()
+        flash('El usuario fue reasignado exitosamente y sus registros fueron transferidos.', 'success')
             
     return redirect(url_for('main.client_detail', client_id=client_id))

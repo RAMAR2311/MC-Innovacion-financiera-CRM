@@ -244,15 +244,16 @@
 
                 {% if current_user.rol in ['Admin', 'Abogado'] and client.estado != 'Prospecto' %}
                 <div class="dashboard-card p-3 mb-3">
-                    <h6 class="fw-bold border-bottom pb-2 mb-3">Reasignar Analista</h6>
-                    <form action="{{ url_for('main.assign_analyst', client_id=client.id) }}" method="POST">
+                    <h6 class="fw-bold border-bottom pb-2 mb-3">Reasignar Usuario</h6>
+                    <form action="{{ url_for('main.reassign_user', client_id=client.id) }}" method="POST">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-                        <select class="form-select form-select-sm mb-3" name="new_analyst_id" required>
+                        <select class="form-select form-select-sm mb-3" name="new_user_id" required>
                             <option value="">Seleccionar...</option>
-                            {% for analyst in all_analysts %}
-                            <option value="{{ analyst.id }}" {% if client.analista_id==analyst.id %}selected{% endif %}>
+                            {% for u in all_users %}
+                            <option value="{{ u.id }}" {% if client.analista_id==u.id or client.abogado_id==u.id or
+                                client.radicador_id==u.id %}selected{% endif %}>
                                 {{
-                                analyst.nombre_completo }} ({{ analyst.rol }})</option>
+                                u.nombre_completo }} ({{ u.rol }})</option>
                             {% endfor %}
                         </select>
                         <button type="submit" class="btn btn-warning btn-sm w-100 text-dark fw-bold"

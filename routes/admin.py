@@ -18,9 +18,9 @@ def admin_dashboard():
 
     page = request.args.get('page', 1, type=int)
     users = User.query.paginate(page=page, per_page=20)
-    all_analysts = User.query.filter(User.rol.in_(['Analista', 'Aliado', 'Admin'])).all()
+    all_users = User.query.filter(User.rol != 'Cliente').all()
     all_clients = Client.query.order_by(Client.nombre).all()
-    return render_template('admin/dashboard.html', users=users, all_analysts=all_analysts, all_clients=all_clients)
+    return render_template('admin/dashboard.html', users=users, all_analysts=all_users, all_clients=all_clients)
 
 
 @admin_bp.route('/admin/create_user', methods=['POST'])
@@ -53,19 +53,34 @@ def reassign_analyst():
         return redirect(url_for('admin.admin_dashboard'))
 
     try:
+        new_user = User.query.get(new_analyst_id)
+        if not new_user:
+            flash('Usuario destino invalido.', 'danger')
+            return redirect(url_for('admin.admin_dashboard'))
+
         if massive_reassign:
             # Reasignación masiva
             if not old_analyst_id:
-                flash('Debes seleccionar el analista origen.', 'warning')
+                flash('Debes seleccionar el usuario origen.', 'warning')
                 return redirect(url_for('admin.admin_dashboard'))
 
             if old_analyst_id == new_analyst_id:
-                flash('El analista de origen y destino deben ser diferentes.', 'warning')
+                flash('El usuario origen y destino deben ser diferentes.', 'warning')
                 return redirect(url_for('admin.admin_dashboard'))
 
-            # Bulk update for efficiency
-            # 1. Clientes
-            clients_updated = Client.query.filter_by(analista_id=old_analyst_id).update({Client.analista_id: new_analyst_id})
+            # Dependiendo del rol del nuevo usuario, lo asignamos en el campo correcto
+            field_to_update = Client.analista_id
+            if new_user.rol == 'Abogado':
+                field_to_update = Client.abogado_id
+            elif new_user.rol == 'Radicador':
+                field_to_update = Client.radicador_id
+
+            # Actualizamos cualquier rol que tuviera el usuario anterior hacia el nuevo en su respectivo campo
+            clients_updated_1 = Client.query.filter_by(analista_id=old_analyst_id).update({field_to_update: new_analyst_id})
+            clients_updated_2 = Client.query.filter_by(abogado_id=old_analyst_id).update({field_to_update: new_analyst_id})
+            clients_updated_3 = Client.query.filter_by(radicador_id=old_analyst_id).update({field_to_update: new_analyst_id})
+            clients_updated = clients_updated_1 + clients_updated_2 + clients_updated_3
+
             # 2. Documentos
             docs_updated = Document.query.filter_by(uploaded_by_id=old_analyst_id).update({Document.uploaded_by_id: new_analyst_id})
             # 3. Notas
@@ -82,7 +97,7 @@ def reassign_analyst():
             if total_ops > 0:
                 flash(f'Reasignación Profunda Completada. Clientes: {clients_updated}, Docs: {docs_updated}, Notas: {notes_updated}, Msjs: {msgs_updated}, Interacciones: {interactions_updated}.', 'success')
             else:
-                flash('El analista de origen no tenía registros asignados en ninguna categoría.', 'info')
+                flash('El usuario origen no tenía registros asignados en ninguna categoría.', 'info')
 
         else:
             # Reasignación de un solo cliente
@@ -95,13 +110,28 @@ def reassign_analyst():
                 flash('Cliente no encontrado.', 'danger')
                 return redirect(url_for('admin.admin_dashboard'))
 
-            old_analyst_id = client.analista_id
-            
-            if str(old_analyst_id) == str(new_analyst_id):
-                flash('El cliente ya está asignado a este analista.', 'warning')
-                return redirect(url_for('admin.admin_dashboard'))
-
-            client.analista_id = new_analyst_id
+            # Check where the old user was assigned
+            # Here, the user didn't provide "old_analyst_id".
+            # They just picked a client and a TARGET user. So we should set the target user's role on the client's respective field.
+            old_analyst_id = None
+            if new_user.rol == 'Abogado':
+                old_analyst_id = client.abogado_id
+                if str(old_analyst_id) == str(new_analyst_id):
+                    flash('El cliente ya está asignado a este abogado.', 'warning')
+                    return redirect(url_for('admin.admin_dashboard'))
+                client.abogado_id = new_analyst_id
+            elif new_user.rol == 'Radicador':
+                old_analyst_id = client.radicador_id
+                if str(old_analyst_id) == str(new_analyst_id):
+                    flash('El cliente ya está asignado a este radicador.', 'warning')
+                    return redirect(url_for('admin.admin_dashboard'))
+                client.radicador_id = new_analyst_id
+            else:
+                old_analyst_id = client.analista_id
+                if str(old_analyst_id) == str(new_analyst_id):
+                    flash('El cliente ya está asignado a este analista.', 'warning')
+                    return redirect(url_for('admin.admin_dashboard'))
+                client.analista_id = new_analyst_id
 
             if old_analyst_id:
                 Document.query.filter_by(client_id=client_id, uploaded_by_id=old_analyst_id).update({Document.uploaded_by_id: new_analyst_id})
