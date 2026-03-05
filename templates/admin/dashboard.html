@@ -183,11 +183,22 @@
             <form action="{{ url_for('admin.reassign_analyst') }}" method="POST">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="modal-body">
-                    <div class="mb-3 form-check">
-                        <input type="checkbox" class="form-check-input" id="massiveReassign" name="massive_reassign"
-                            value="1" checked onchange="toggleReassignMode()">
-                        <label class="form-check-label fw-bold" for="massiveReassign">Reasignación Masiva (Todos los
-                            clientes de un analista)</label>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Modo de Reasignación</label>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="massive_reassign" id="modeSingle"
+                                value="" onchange="toggleReassignMode()">
+                            <label class="form-check-label" for="modeSingle">
+                                Reasignar un solo cliente
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="massive_reassign" id="modeMassive"
+                                value="1" checked onchange="toggleReassignMode()">
+                            <label class="form-check-label" for="modeMassive">
+                                Reasignación Masiva (Todos los clientes de un analista)
+                            </label>
+                        </div>
                     </div>
 
                     <div class="alert alert-warning small" id="massiveWarningBox">
@@ -245,7 +256,7 @@
 
 <script>
     function toggleReassignMode() {
-        const isMassive = document.getElementById('massiveReassign').checked;
+        const isMassive = document.getElementById('modeMassive').checked;
         const oldAnalystDiv = document.getElementById('oldAnalystDiv');
         const singleClientDiv = document.getElementById('singleClientDiv');
         const oldAnalystSelect = document.getElementById('old_analyst_id');
