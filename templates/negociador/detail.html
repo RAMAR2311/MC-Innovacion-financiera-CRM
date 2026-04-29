@@ -123,6 +123,33 @@
                     {% endif %}
                 </div>
 
+                <!-- Client Response Alert -->
+                {% if negotiation.aceptada_por_cliente == true %}
+                <div class="alert alert-success d-flex align-items-center mb-4" role="alert">
+                    <i class="bi bi-check-circle-fill fs-4 me-3"></i>
+                    <div>
+                        <strong>✅ El cliente ACEPTÓ esta negociación</strong>
+                        <br><small>Fecha: {{ negotiation.fecha_respuesta_cliente.strftime('%d/%m/%Y a las %H:%M') if negotiation.fecha_respuesta_cliente else 'N/A' }}</small>
+                    </div>
+                </div>
+                {% elif negotiation.aceptada_por_cliente == false %}
+                <div class="alert alert-danger d-flex align-items-center mb-4" role="alert">
+                    <i class="bi bi-x-circle-fill fs-4 me-3"></i>
+                    <div>
+                        <strong>❌ El cliente RECHAZÓ esta negociación</strong>
+                        <br><small>Fecha: {{ negotiation.fecha_respuesta_cliente.strftime('%d/%m/%Y a las %H:%M') if negotiation.fecha_respuesta_cliente else 'N/A' }}</small>
+                    </div>
+                </div>
+                {% elif negotiation.estado == 'Negociada' %}
+                <div class="alert alert-warning d-flex align-items-center mb-4" role="alert">
+                    <i class="bi bi-hourglass-split fs-4 me-3"></i>
+                    <div>
+                        <strong>⏳ Esperando respuesta del cliente</strong>
+                        <br><small>El cliente aún no ha aceptado ni rechazado esta negociación.</small>
+                    </div>
+                </div>
+                {% endif %}
+
                 <form action="{{ url_for('negociador.update_negotiation', negotiation_id=negotiation.id) }}" method="POST">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
 
@@ -205,6 +232,21 @@
                             <strong class="small text-uppercase text-muted">Valor Acordado</strong>
                         </div>
                         <p class="mb-0 small">${{ "{:,.0f}".format(negotiation.valor_negociado) }} (Original: ${{ "{:,.0f}".format(negotiation.obligation.valor) }})</p>
+                    </div>
+                    {% endif %}
+                    {% if negotiation.aceptada_por_cliente is not none %}
+                    <div class="mb-3">
+                        <div class="d-flex align-items-center mb-1">
+                            <div class="bg-{{ 'success' if negotiation.aceptada_por_cliente else 'danger' }} rounded-circle me-2" style="width: 10px; height: 10px;"></div>
+                            <strong class="small text-uppercase text-muted">Respuesta del Cliente</strong>
+                        </div>
+                        <p class="mb-0 small">
+                            {% if negotiation.aceptada_por_cliente %}
+                            ✅ <strong class="text-success">ACEPTADA</strong> por el cliente el {{ negotiation.fecha_respuesta_cliente.strftime('%d/%m/%Y a las %H:%M') if negotiation.fecha_respuesta_cliente else '' }}
+                            {% else %}
+                            ❌ <strong class="text-danger">RECHAZADA</strong> por el cliente el {{ negotiation.fecha_respuesta_cliente.strftime('%d/%m/%Y a las %H:%M') if negotiation.fecha_respuesta_cliente else '' }}
+                            {% endif %}
+                        </p>
                     </div>
                     {% endif %}
                 </div>

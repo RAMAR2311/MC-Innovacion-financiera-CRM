@@ -88,6 +88,7 @@
                         <th>Valor Deuda</th>
                         <th>Valor Negociado</th>
                         <th>Estado</th>
+                        <th>Cliente</th>
                         <th>Fecha</th>
                         <th>Acciones</th>
                     </tr>
@@ -124,6 +125,17 @@
                             <span class="badge bg-secondary">{{ neg.estado }}</span>
                             {% endif %}
                         </td>
+                        <td>
+                            {% if neg.aceptada_por_cliente == true %}
+                            <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Aceptada</span>
+                            {% elif neg.aceptada_por_cliente == false %}
+                            <span class="badge bg-danger"><i class="bi bi-x-circle me-1"></i>Rechazada</span>
+                            {% elif neg.estado == 'Negociada' %}
+                            <span class="badge bg-warning text-dark"><i class="bi bi-clock me-1"></i>Esperando</span>
+                            {% else %}
+                            <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
                         <td>{{ neg.created_at.strftime('%Y-%m-%d') }}</td>
                         <td class="d-flex gap-1">
                             <a href="{{ url_for('negociador.negotiation_detail', negotiation_id=neg.id) }}"
@@ -134,7 +146,7 @@
                     </tr>
                     {% else %}
                     <tr>
-                        <td colspan="8" class="text-center text-muted py-5">
+                        <td colspan="9" class="text-center text-muted py-5">
                             <i class="bi bi-chat-left-text display-4 d-block mb-3 opacity-50"></i>
                             No tienes negociaciones asignadas.
                         </td>

@@ -398,3 +398,39 @@ def reassign_user(client_id):
         flash('El usuario fue reasignado exitosamente y sus registros fueron transferidos.', 'success')
             
     return redirect(url_for('main.client_detail', client_id=client_id))
+
+@main_bp.route('/negotiation/<int:negotiation_id>/respond', methods=['POST'])
+@login_required
+@role_required(['Cliente'])
+def respond_negotiation(negotiation_id):
+    """El cliente acepta o rechaza una negociación."""
+    negotiation = Negotiation.query.get_or_404(negotiation_id)
+    
+    # Verificar que este cliente es dueño de la obligación
+    client = Client.query.filter_by(login_user_id=current_user.id).first()
+    if not client or negotiation.obligation.client_id != client.id:
+        flash('No tienes permiso para responder a esta negociación.', 'danger')
+        return redirect(url_for('main.client_portal'))
+    
+    # Solo se puede responder a negociaciones con estado 'Negociada'
+    if negotiation.estado != 'Negociada':
+        flash('Esta negociación aún no tiene una propuesta para aceptar.', 'warning')
+        return redirect(url_for('main.client_portal'))
+    
+    accion = request.form.get('accion')
+    
+    if accion == 'aceptar':
+        negotiation.aceptada_por_cliente = True
+        negotiation.fecha_respuesta_cliente = get_colombia_now()
+        negotiation.estado = 'Finalizada'
+        db.session.commit()
+        flash('¡Has aceptado la negociación exitosamente!', 'success')
+    elif accion == 'rechazar':
+        negotiation.aceptada_por_cliente = False
+        negotiation.fecha_respuesta_cliente = get_colombia_now()
+        db.session.commit()
+        flash('Has rechazado la negociación. El negociador será notificado.', 'info')
+    else:
+        flash('Acción no válida.', 'warning')
+    
+    return redirect(url_for('main.client_portal'))

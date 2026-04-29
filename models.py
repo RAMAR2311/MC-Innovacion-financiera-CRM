@@ -205,6 +205,8 @@ class Negotiation(db.Model):
     valor_negociado = db.Column(db.Numeric(15, 2), nullable=True)
     condiciones = db.Column(db.Text, nullable=True)  # Condiciones de la negociación
     observaciones = db.Column(db.Text, nullable=True)  # Notas del negociador
+    aceptada_por_cliente = db.Column(db.Boolean, nullable=True, default=None)  # None=sin respuesta, True=aceptada, False=rechazada
+    fecha_respuesta_cliente = db.Column(db.DateTime, nullable=True)  # Cuando el cliente respondió
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow)
 

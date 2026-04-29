@@ -345,17 +345,23 @@
                         <div class="dashboard-card p-3">
                             <div class="d-flex justify-content-between align-items-start mb-2">
                                 <div class="fw-bold text-primary">{{ neg.obligation.entidad }}</div>
-                                {% if neg.estado == 'Negociada' %}
-                                <span class="badge bg-success">Negociada</span>
-                                {% elif neg.estado == 'En Proceso' %}
-                                <span class="badge bg-info text-dark">En Proceso</span>
-                                {% elif neg.estado == 'Pendiente' %}
-                                <span class="badge bg-warning text-dark">Pendiente</span>
-                                {% elif neg.estado == 'Finalizada' %}
-                                <span class="badge bg-dark">Finalizada</span>
-                                {% else %}
-                                <span class="badge bg-secondary">{{ neg.estado }}</span>
-                                {% endif %}
+                                <div class="d-flex align-items-center gap-1">
+                                    {% if neg.aceptada_por_cliente == true %}
+                                    <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Aceptada</span>
+                                    {% elif neg.aceptada_por_cliente == false %}
+                                    <span class="badge bg-danger"><i class="bi bi-x-circle me-1"></i>Rechazada</span>
+                                    {% elif neg.estado == 'Negociada' %}
+                                    <span class="badge bg-warning text-dark"><i class="bi bi-clock me-1"></i>Esperando tu respuesta</span>
+                                    {% elif neg.estado == 'En Proceso' %}
+                                    <span class="badge bg-info text-dark">En Proceso</span>
+                                    {% elif neg.estado == 'Pendiente' %}
+                                    <span class="badge bg-secondary">Pendiente</span>
+                                    {% elif neg.estado == 'Finalizada' %}
+                                    <span class="badge bg-dark">Finalizada</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">{{ neg.estado }}</span>
+                                    {% endif %}
+                                </div>
                             </div>
 
                             <div class="row g-2 mb-2">
@@ -385,8 +391,43 @@
                             {% endif %}
 
                             {% if neg.condiciones %}
-                            <div class="small text-muted mt-2">
+                            <div class="small text-muted mt-2 mb-2">
                                 <strong>Condiciones:</strong> {{ neg.condiciones }}
+                            </div>
+                            {% endif %}
+
+                            <!-- Accept/Reject Buttons - Only when status is 'Negociada' and no response yet -->
+                            {% if neg.estado == 'Negociada' and neg.aceptada_por_cliente is none %}
+                            <div class="border-top pt-3 mt-2">
+                                <p class="small text-dark fw-bold mb-2"><i class="bi bi-question-circle me-1"></i>¿Aceptas esta negociación?</p>
+                                <div class="d-flex gap-2">
+                                    <form action="{{ url_for('main.respond_negotiation', negotiation_id=neg.id) }}" method="POST" class="flex-fill">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                                        <input type="hidden" name="accion" value="aceptar" />
+                                        <button type="submit" class="btn btn-success btn-sm w-100"
+                                            onclick="return confirm('¿Estás seguro de aceptar esta negociación? Esta acción es definitiva.');">
+                                            <i class="bi bi-check-circle me-1"></i>Aceptar
+                                        </button>
+                                    </form>
+                                    <form action="{{ url_for('main.respond_negotiation', negotiation_id=neg.id) }}" method="POST" class="flex-fill">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                                        <input type="hidden" name="accion" value="rechazar" />
+                                        <button type="submit" class="btn btn-outline-danger btn-sm w-100"
+                                            onclick="return confirm('¿Estás seguro de rechazar esta negociación?');">
+                                            <i class="bi bi-x-circle me-1"></i>Rechazar
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                            {% elif neg.aceptada_por_cliente == true %}
+                            <div class="alert alert-success small py-2 px-3 mb-0 mt-2">
+                                <i class="bi bi-check-circle-fill me-1"></i>
+                                Aceptaste esta negociación el {{ neg.fecha_respuesta_cliente.strftime('%d/%m/%Y') if neg.fecha_respuesta_cliente else '' }}
+                            </div>
+                            {% elif neg.aceptada_por_cliente == false %}
+                            <div class="alert alert-danger small py-2 px-3 mb-0 mt-2">
+                                <i class="bi bi-x-circle-fill me-1"></i>
+                                Rechazaste esta negociación el {{ neg.fecha_respuesta_cliente.strftime('%d/%m/%Y') if neg.fecha_respuesta_cliente else '' }}
                             </div>
                             {% endif %}
                         </div>
