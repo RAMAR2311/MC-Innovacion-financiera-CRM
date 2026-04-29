@@ -181,6 +181,10 @@
                             client.analista.nombre_completo if client.analista else 'N/A' }}</div>
                         <div class="mb-2"><i class="bi bi-person-badge me-2 text-primary"></i> Radicador: {{
                             client.radicador.nombre_completo if client.radicador else 'N/A' }}</div>
+                        <div class="mb-2">
+                            <i class="bi bi-receipt me-2 {% if client.es_responsable_iva %}text-danger{% else %}text-success{% endif %}"></i>
+                            Impuestos: <strong>{{ 'Responsable (IVA/Ret/ICA)' if client.es_responsable_iva else 'No Establecido' }}</strong>
+                        </div>
                     </div>
                 </div>
 
@@ -330,6 +334,15 @@
                         <li class="nav-item" role="presentation">
                             <button class="nav-link" id="chat-tab" data-bs-toggle="tab" data-bs-target="#chat"
                                 type="button" role="tab">Comunicación</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="negotiations-tab" data-bs-toggle="tab" data-bs-target="#negotiations"
+                                type="button" role="tab">
+                                Negociaciones
+                                {% if client_negotiations %}
+                                <span class="badge bg-danger ms-1">{{ client_negotiations|length }}</span>
+                                {% endif %}
+                            </button>
                         </li>
                     </ul>
                 </div>
@@ -519,6 +532,30 @@
                                         </form>
                                     </div>
                                 </div>
+
+                                {% if current_user.rol in ['Abogado', 'Admin', 'Analista', 'Aliado', 'Radicador'] %}
+                                <div class="mt-2 pt-2 border-top">
+                                    <form action="{{ url_for('negociador.send_to_negotiation', obligation_id=obligation.id) }}"
+                                        method="POST" class="d-flex align-items-center gap-2"
+                                        onsubmit="return confirm('¿Enviar esta obligación a negociación?');">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                                        {% if negociadores %}
+                                        <select class="form-select form-select-sm" name="negociador_id" style="max-width: 200px;">
+                                            {% for neg in negociadores %}
+                                            <option value="{{ neg.id }}">{{ neg.nombre_completo }}</option>
+                                            {% endfor %}
+                                        </select>
+                                        {% endif %}
+                                        <button type="submit" class="btn btn-outline-danger btn-sm">
+                                            <i class="bi bi-chat-dots me-1"></i>Enviar a Negociación
+                                        </button>
+                                        {% set active_neg = obligation.negotiations | selectattr('estado', 'ne', 'Finalizada') | selectattr('estado', 'ne', 'Cancelada') | list %}
+                                        {% if active_neg %}
+                                        <span class="badge bg-info text-dark"><i class="bi bi-chat-dots me-1"></i>En Negociación</span>
+                                        {% endif %}
+                                    </form>
+                                </div>
+                                {% endif %}
                                 {% else %}
                                 <div class="col-12">
                                     <p class="text-muted text-center py-3">No hay obligaciones registradas.</p>
@@ -816,6 +853,95 @@
                             </div>
                         </div>
 
+                        <!-- TAB 5: NEGOTIATIONS -->
+                        <div class="tab-pane fade" id="negotiations" role="tabpanel">
+                            <h5 class="fw-bold mb-4"><i class="bi bi-chat-dots me-2"></i>Negociaciones del Cliente</h5>
+                            
+                            {% if client_negotiations %}
+                            <div class="row g-3">
+                                {% for neg in client_negotiations %}
+                                <div class="col-md-6">
+                                    <div class="border rounded p-3 position-relative h-100"
+                                        style="border-left: 4px solid {% if neg.estado == 'Negociada' %}#198754{% elif neg.estado == 'En Proceso' %}#0dcaf0{% elif neg.estado == 'Pendiente' %}#ffc107{% elif neg.estado == 'Finalizada' %}#212529{% else %}#dc3545{% endif %} !important;">
+                                        
+                                        <div class="d-flex justify-content-between align-items-start mb-2">
+                                            <div>
+                                                <span class="fw-bold text-primary">{{ neg.obligation.entidad }}</span>
+                                                <br><small class="text-muted">{{ neg.obligation.estado }}</small>
+                                            </div>
+                                            {% if neg.estado == 'Pendiente' %}
+                                            <span class="badge bg-warning text-dark">Pendiente</span>
+                                            {% elif neg.estado == 'En Proceso' %}
+                                            <span class="badge bg-info text-dark">En Proceso</span>
+                                            {% elif neg.estado == 'Negociada' %}
+                                            <span class="badge bg-success">Negociada</span>
+                                            {% elif neg.estado == 'Finalizada' %}
+                                            <span class="badge bg-dark">Finalizada</span>
+                                            {% elif neg.estado == 'Cancelada' %}
+                                            <span class="badge bg-danger">Cancelada</span>
+                                            {% endif %}
+                                        </div>
+
+                                        <div class="row g-2 mb-2">
+                                            <div class="col-6">
+                                                <small class="text-muted d-block">Deuda Original</small>
+                                                <span class="text-danger fw-bold">${{ "{:,.0f}".format(neg.obligation.valor) }}</span>
+                                            </div>
+                                            <div class="col-6">
+                                                <small class="text-muted d-block">Valor Negociado</small>
+                                                {% if neg.valor_negociado %}
+                                                <span class="text-success fw-bold">${{ "{:,.0f}".format(neg.valor_negociado) }}</span>
+                                                {% else %}
+                                                <span class="text-muted">Pendiente</span>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+
+                                        {% if neg.valor_negociado and neg.valor_negociado > 0 %}
+                                        {% set ahorro = neg.obligation.valor - neg.valor_negociado %}
+                                        <div class="bg-success bg-opacity-10 rounded p-2 mb-2 text-center">
+                                            <small class="text-success fw-bold">
+                                                <i class="bi bi-arrow-down-circle me-1"></i>
+                                                Ahorro: ${{ "{:,.0f}".format(ahorro) }} 
+                                                ({{ "%.1f"|format((ahorro / neg.obligation.valor) * 100) }}%)
+                                            </small>
+                                        </div>
+                                        {% endif %}
+
+                                        {% if neg.condiciones %}
+                                        <div class="mb-2">
+                                            <small class="fw-bold text-muted">Condiciones:</small>
+                                            <p class="small mb-0" style="white-space: pre-line;">{{ neg.condiciones }}</p>
+                                        </div>
+                                        {% endif %}
+
+                                        {% if neg.observaciones %}
+                                        <div class="mb-2">
+                                            <small class="fw-bold text-muted">Observaciones:</small>
+                                            <p class="small mb-0" style="white-space: pre-line;">{{ neg.observaciones }}</p>
+                                        </div>
+                                        {% endif %}
+
+                                        <div class="d-flex justify-content-between align-items-center mt-2 pt-2 border-top">
+                                            <small class="text-muted">
+                                                <i class="bi bi-person me-1"></i>{{ neg.negociador.nombre_completo }}
+                                            </small>
+                                            <small class="text-muted">
+                                                <i class="bi bi-calendar me-1"></i>{{ neg.created_at.strftime('%d/%m/%Y') }}
+                                            </small>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            {% else %}
+                            <div class="text-center text-muted py-5">
+                                <i class="bi bi-chat-left-text display-4 d-block mb-3 opacity-50"></i>
+                                No hay negociaciones registradas para este cliente.
+                            </div>
+                            {% endif %}
+                        </div>
+
                     </div>
                 </div>
             </div>
@@ -890,6 +1016,16 @@
                         <input type="text" class="form-control" name="contract_number"
                             value="{{ client.contract_number or '' }}">
                     </div>
+                    
+                    <div class="card bg-light border-0 mb-3">
+                        <div class="card-body p-3">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" role="switch" id="ivaSwitch1" name="es_responsable_iva" value="true" {% if client.es_responsable_iva %}checked{% endif %}>
+                                <label class="form-check-label fw-bold ms-2 text-dark" for="ivaSwitch1">Responsable de IVA / Impuestos</label>
+                            </div>
+                            <small class="text-muted d-block mt-1 ms-5">Si se activa, el sistema deducirá IVA, ICA y Retefuente automáticamente.</small>
+                        </div>
+                    </div>
 
                 </div>
                 <div class="modal-footer">
@@ -960,6 +1096,16 @@
                         <label class="form-label">Motivo de Consulta</label>
                         <textarea class="form-control" name="motivo_consulta"
                             rows="3">{{ client.motivo_consulta or '' }}</textarea>
+                    </div>
+
+                    <div class="card bg-light border-0 mb-1 mt-2">
+                        <div class="card-body p-3">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" role="switch" id="ivaSwitch2" name="es_responsable_iva" value="true" {% if client.es_responsable_iva %}checked{% endif %}>
+                                <label class="form-check-label fw-bold ms-2 text-dark" for="ivaSwitch2">Responsable de IVA / Impuestos</label>
+                            </div>
+                            <small class="text-muted d-block mt-1 ms-5">Si se activa, el sistema aplicará las deducciones (IVA, ICA, Retefuente) a sus pagos.</small>
+                        </div>
                     </div>
 
                 </div>
@@ -1191,7 +1337,7 @@
     }
 </script>
 <!-- Management History Note Section -->
-{% if current_user.rol in ['Analista', 'Abogado', 'Admin', 'Aliado', 'Radicador'] %}
+{% if current_user.rol in ['Analista', 'Abogado', 'Admin', 'Aliado', 'Radicador', 'Negociador'] %}
 <div class="card shadow-sm mt-4 mb-4">
     <div class="card-header bg-secondary text-white">
         <h5 class="mb-0"><i class="bi bi-journal-text me-2"></i>Historial de Gestión</h5>

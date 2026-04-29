@@ -30,6 +30,8 @@ def login():
                 return redirect(url_for('lawyer.lawyer_dashboard'))
             elif user.rol == 'Radicador':
                 return redirect(url_for('radicador.dashboard'))
+            elif user.rol == 'Negociador':
+                return redirect(url_for('negociador.dashboard'))
             return redirect(url_for('main.index'))
 
                 
@@ -70,6 +72,8 @@ def change_password():
                 return redirect(url_for('analyst.analyst_dashboard'))
             elif current_user.rol == 'Abogado':
                 return redirect(url_for('lawyer.lawyer_dashboard'))
+            elif current_user.rol == 'Negociador':
+                return redirect(url_for('negociador.dashboard'))
             return redirect(url_for('main.index'))
 
         # On error, redirect back to the previous page if possible, or default to index

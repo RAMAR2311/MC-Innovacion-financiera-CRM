@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid py-4 fade-in">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold mb-0"><i class="bi bi-bank me-2 text-primary"></i>Panel de Impuestos</h2>
+            <p class="text-muted mb-0">Resumen y trazabilidad de retenciones e impuestos (Clientes Responsables de IVA)</p>
+        </div>
+        <div>
+            <button class="btn btn-outline-secondary btn-sm" onclick="window.print()">
+                <i class="bi bi-printer me-1"></i> Imprimir Reporte
+            </button>
+        </div>
+    </div>
+
+    <!-- KPIs de Impuestos Totales -->
+    <div class="row g-4 mb-4">
+        <!-- Tarjeta IVA -->
+        <div class="col-md-3">
+            <div class="card dashboard-card bg-primary text-white h-100 border-0 shadow-sm" style="background: linear-gradient(135deg, #0d6efd, #0b5ed7) !important;">
+                <div class="card-body p-4 position-relative overflow-hidden">
+                    <h6 class="card-title text-white-50 fw-bold mb-1">IVA por Pagar (19%)</h6>
+                    <h2 class="fw-bold mb-0">${{ "{:,.0f}".format(total_iva_global) }}</h2>
+                    <i class="bi bi-receipt-cutoff position-absolute" style="font-size: 5rem; top: -10px; right: -10px; opacity: 0.2;"></i>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Tarjeta Retefuente -->
+        <div class="col-md-3">
+            <div class="card dashboard-card bg-warning h-100 border-0 shadow-sm" style="background: linear-gradient(135deg, #ffc107, #ffb300) !important;">
+                <div class="card-body p-4 position-relative overflow-hidden text-dark">
+                    <h6 class="card-title fw-bold mb-1" style="opacity: 0.7;">Retefuente Acumulada (2.5%)</h6>
+                    <h2 class="fw-bold mb-0">${{ "{:,.0f}".format(total_retefuente_global) }}</h2>
+                    <i class="bi bi-scissors position-absolute" style="font-size: 5rem; top: -10px; right: -10px; opacity: 0.15;"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tarjeta ICA -->
+        <div class="col-md-3">
+            <div class="card dashboard-card bg-success text-white h-100 border-0 shadow-sm" style="background: linear-gradient(135deg, #198754, #157347) !important;">
+                <div class="card-body p-4 position-relative overflow-hidden">
+                    <h6 class="card-title text-white-50 fw-bold mb-1">ICA Acumulado (11.04/1000)</h6>
+                    <h2 class="fw-bold mb-0">${{ "{:,.0f}".format(total_ica_global) }}</h2>
+                    <i class="bi bi-building position-absolute" style="font-size: 5rem; top: -10px; right: -10px; opacity: 0.2;"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tarjeta Impuestos de Gastos -->
+        <div class="col-md-3">
+            <div class="card dashboard-card bg-info text-white h-100 border-0 shadow-sm" style="background: linear-gradient(135deg, #0dcaf0, #0bacce) !important;">
+                <div class="card-body p-4 position-relative overflow-hidden">
+                    <h6 class="card-title text-white-50 fw-bold mb-1">Impuestos de Gastos</h6>
+                    <h2 class="fw-bold mb-0">${{ "{:,.0f}".format(total_impuestos_gastos) }}</h2>
+                    <i class="bi bi-cart-x position-absolute" style="font-size: 5rem; top: -10px; right: -10px; opacity: 0.2;"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabla Detallada -->
+    <div class="card dashboard-card border-0 shadow-sm">
+        <div class="card-header bg-white border-bottom py-3">
+            <h5 class="fw-bold mb-0">Detalle de Operaciones Gravadas</h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light text-muted small">
+                        <tr>
+                            <th class="ps-4">Fecha</th>
+                            <th>Cliente</th>
+                            <th>Operación</th>
+                            <th class="text-end">Valor Base</th>
+                            <th class="text-end text-primary">IVA (19%)</th>
+                            <th class="text-end text-warning">Retefuente (2.5%)</th>
+                            <th class="text-end text-success pe-4">ICA (11.04)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for op in operaciones %}
+                        <tr>
+                            <td class="ps-4 small text-muted">{{ op.fecha.strftime('%Y-%m-%d') if op.fecha else 'N/A' }}</td>
+                            <td class="fw-bold">{{ op.cliente }}</td>
+                            <td><span class="badge bg-secondary">{{ op.tipo_operacion }}</span></td>
+                            <td class="text-end fw-bold">${{ "{:,.0f}".format(op.valor_base) }}</td>
+                            <td class="text-end text-primary fw-bold">+ ${{ "{:,.0f}".format(op.iva) }}</td>
+                            <td class="text-end text-warning fw-bold">- ${{ "{:,.0f}".format(op.retefuente) }}</td>
+                            <td class="text-end text-success fw-bold">- ${{ "{:,.0f}".format(op.ica) }}</td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="7" class="text-center py-5 text-muted">
+                                <i class="bi bi-inbox d-block fs-1 mb-2"></i>
+                                No hay registros de facturación con impuestos en este momento.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .dashboard-card {
+        border-radius: 12px;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .dashboard-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 12px rgba(0,0,0,0.1) !important;
+    }
+    @media print {
+        .dashboard-card {
+            box-shadow: none !important;
+            border: 1px solid #ddd !important;
+        }
+        .btn {
+            display: none !important;
+        }
+    }
+</style>
+{% endblock %}

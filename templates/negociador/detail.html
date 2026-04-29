@@ -1,0 +1,215 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    .negotiation-card {
+        border: none;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        background: #ffffff;
+        margin-bottom: 1.5rem;
+    }
+
+    .status-badge-lg {
+        font-size: 0.95rem;
+        padding: 8px 16px;
+        border-radius: 20px;
+    }
+
+    .info-label {
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: #6c757d;
+        font-weight: 600;
+        margin-bottom: 4px;
+    }
+
+    .info-value {
+        font-size: 1.1rem;
+        font-weight: 500;
+        color: #212529;
+    }
+
+    .savings-highlight {
+        background: linear-gradient(135deg, #d1fae5, #a7f3d0);
+        border-radius: 12px;
+        padding: 1.5rem;
+    }
+</style>
+
+<div class="container-fluid py-4">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('negociador.dashboard') }}" class="text-decoration-none">Negociaciones</a></li>
+            <li class="breadcrumb-item active">{{ negotiation.obligation.client.nombre }} - {{ negotiation.obligation.entidad }}</li>
+        </ol>
+    </nav>
+
+    <div class="row g-4">
+        <!-- LEFT: Client & Obligation Info -->
+        <div class="col-lg-4">
+            <!-- Client Card -->
+            <div class="negotiation-card p-4 text-center">
+                <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center mx-auto mb-3"
+                    style="width: 70px; height: 70px; font-size: 1.5rem;">
+                    {{ negotiation.obligation.client.nombre[0] }}{{ negotiation.obligation.client.nombre.split()[1][0] if negotiation.obligation.client.nombre.split()|length > 1 else '' }}
+                </div>
+                <h5 class="fw-bold mb-1">{{ negotiation.obligation.client.nombre }}</h5>
+                <p class="text-muted small mb-2">{{ negotiation.obligation.client.email }}</p>
+                <span class="badge rounded-pill bg-{{ 'success' if negotiation.obligation.client.estado in ['Radicado', 'Finalizado', 'Con_Contrato'] else 'warning' }} px-3 py-2">
+                    {{ negotiation.obligation.client.estado.replace('_', ' ') }}
+                </span>
+                <hr class="my-3">
+                <div class="text-start small">
+                    <div class="mb-2"><i class="bi bi-telephone me-2 text-primary"></i> {{ negotiation.obligation.client.telefono }}</div>
+                    <div class="mb-2"><i class="bi bi-card-heading me-2 text-primary"></i> {{ negotiation.obligation.client.tipo_id }} {{ negotiation.obligation.client.numero_id }}</div>
+                    <div class="mb-2"><i class="bi bi-geo-alt me-2 text-primary"></i> {{ negotiation.obligation.client.ciudad }}</div>
+                </div>
+            </div>
+
+            <!-- Obligation Card -->
+            <div class="negotiation-card p-4">
+                <h6 class="fw-bold border-bottom pb-2 mb-3"><i class="bi bi-bank me-2"></i>Obligación Financiera</h6>
+                <div class="mb-3">
+                    <div class="info-label">Entidad</div>
+                    <div class="info-value text-primary">{{ negotiation.obligation.entidad }}</div>
+                </div>
+                <div class="mb-3">
+                    <div class="info-label">Estado de la Deuda</div>
+                    <div class="info-value">
+                        <span class="badge bg-light text-dark border">{{ negotiation.obligation.estado }}</span>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <div class="info-label">Valor de la Deuda</div>
+                    <div class="info-value text-danger fs-4 fw-bold">${{ "{:,.0f}".format(negotiation.obligation.valor) }}</div>
+                </div>
+                <div class="mb-0">
+                    <div class="info-label">Gestión Legal</div>
+                    <div class="info-value">{{ negotiation.obligation.estado_legal }}</div>
+                </div>
+            </div>
+
+            <!-- Savings Summary -->
+            {% if negotiation.valor_negociado and negotiation.valor_negociado > 0 %}
+            <div class="savings-highlight text-center">
+                <div class="info-label text-success mb-1">Ahorro Estimado</div>
+                {% set ahorro = negotiation.obligation.valor - negotiation.valor_negociado %}
+                <div class="h3 text-success fw-bold mb-0">${{ "{:,.0f}".format(ahorro) }}</div>
+                <small class="text-muted">
+                    {{ "%.1f"|format((ahorro / negotiation.obligation.valor) * 100) }}% de descuento
+                </small>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- RIGHT: Negotiation Management -->
+        <div class="col-lg-8">
+            <div class="negotiation-card p-4">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h4 class="fw-bold mb-0"><i class="bi bi-chat-dots me-2"></i>Gestión de Negociación</h4>
+                    {% if negotiation.estado == 'Pendiente' %}
+                    <span class="status-badge-lg badge bg-warning text-dark">⏳ Pendiente</span>
+                    {% elif negotiation.estado == 'En Proceso' %}
+                    <span class="status-badge-lg badge bg-info text-dark">🔄 En Proceso</span>
+                    {% elif negotiation.estado == 'Negociada' %}
+                    <span class="status-badge-lg badge bg-success">✅ Negociada</span>
+                    {% elif negotiation.estado == 'Finalizada' %}
+                    <span class="status-badge-lg badge bg-dark">🏁 Finalizada</span>
+                    {% elif negotiation.estado == 'Cancelada' %}
+                    <span class="status-badge-lg badge bg-danger">❌ Cancelada</span>
+                    {% endif %}
+                </div>
+
+                <form action="{{ url_for('negociador.update_negotiation', negotiation_id=negotiation.id) }}" method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+
+                    <!-- Estado -->
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Estado de la Negociación</label>
+                            <select class="form-select" name="estado">
+                                <option value="Pendiente" {% if negotiation.estado=='Pendiente' %}selected{% endif %}>⏳ Pendiente</option>
+                                <option value="En Proceso" {% if negotiation.estado=='En Proceso' %}selected{% endif %}>🔄 En Proceso</option>
+                                <option value="Negociada" {% if negotiation.estado=='Negociada' %}selected{% endif %}>✅ Negociada</option>
+                                <option value="Finalizada" {% if negotiation.estado=='Finalizada' %}selected{% endif %}>🏁 Finalizada</option>
+                                <option value="Cancelada" {% if negotiation.estado=='Cancelada' %}selected{% endif %}>❌ Cancelada</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Valor Negociado</label>
+                            <div class="input-group">
+                                <span class="input-group-text">$</span>
+                                <input type="number" step="0.01" class="form-control" name="valor_negociado"
+                                    value="{{ negotiation.valor_negociado or '' }}" placeholder="Monto acordado con la entidad">
+                            </div>
+                            {% if negotiation.obligation.valor %}
+                            <small class="text-muted">Deuda original: ${{ "{:,.0f}".format(negotiation.obligation.valor) }}</small>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Condiciones -->
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">Condiciones de la Negociación</label>
+                        <textarea class="form-control" name="condiciones" rows="4"
+                            placeholder="Detalla las condiciones negociadas: plazos, montos, acuerdos de pago, descuentos, etc.">{{ negotiation.condiciones or '' }}</textarea>
+                        <small class="text-muted">Incluye detalles como plazos de pago, porcentajes de descuento, acuerdos especiales.</small>
+                    </div>
+
+                    <!-- Observaciones -->
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">Observaciones del Negociador</label>
+                        <textarea class="form-control" name="observaciones" rows="3"
+                            placeholder="Notas adicionales, seguimiento, contactos en la entidad, próximos pasos...">{{ negotiation.observaciones or '' }}</textarea>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center">
+                        <small class="text-muted">
+                            <i class="bi bi-clock me-1"></i>
+                            Última actualización: {{ negotiation.updated_at.strftime('%d/%m/%Y %H:%M') if negotiation.updated_at else 'N/A' }}
+                        </small>
+                        <button type="submit" class="btn btn-primary px-4">
+                            <i class="bi bi-save me-1"></i> Guardar Cambios
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Timeline / History -->
+            <div class="negotiation-card p-4">
+                <h5 class="fw-bold mb-3"><i class="bi bi-clock-history me-2"></i>Resumen del Proceso</h5>
+                <div class="border-start border-3 border-primary ps-4">
+                    <div class="mb-3">
+                        <div class="d-flex align-items-center mb-1">
+                            <div class="bg-primary rounded-circle me-2" style="width: 10px; height: 10px;"></div>
+                            <strong class="small text-uppercase text-muted">Asignación</strong>
+                        </div>
+                        <p class="mb-0 small">Negociación creada el {{ negotiation.created_at.strftime('%d/%m/%Y a las %H:%M') }}</p>
+                    </div>
+                    {% if negotiation.condiciones %}
+                    <div class="mb-3">
+                        <div class="d-flex align-items-center mb-1">
+                            <div class="bg-info rounded-circle me-2" style="width: 10px; height: 10px;"></div>
+                            <strong class="small text-uppercase text-muted">Condiciones Registradas</strong>
+                        </div>
+                        <p class="mb-0 small">{{ negotiation.condiciones }}</p>
+                    </div>
+                    {% endif %}
+                    {% if negotiation.valor_negociado %}
+                    <div class="mb-3">
+                        <div class="d-flex align-items-center mb-1">
+                            <div class="bg-success rounded-circle me-2" style="width: 10px; height: 10px;"></div>
+                            <strong class="small text-uppercase text-muted">Valor Acordado</strong>
+                        </div>
+                        <p class="mb-0 small">${{ "{:,.0f}".format(negotiation.valor_negociado) }} (Original: ${{ "{:,.0f}".format(negotiation.obligation.valor) }})</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

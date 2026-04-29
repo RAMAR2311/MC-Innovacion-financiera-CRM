@@ -2,7 +2,7 @@ from flask import Blueprint, render_template, request, flash, redirect, url_for,
 from flask_login import current_user, login_required
 from services.financial_service import FinancialService
 from services.pdf_service import PDFService
-from models import PaymentDiagnosis, ContractInstallment, AdministrativeExpense, db
+from models import PaymentDiagnosis, ContractInstallment, AdministrativeExpense, Expense, db
 from utils.decorators import role_required
 from datetime import datetime
 import hashlib
@@ -20,7 +20,7 @@ def accounting_dashboard():
 
     # Get Data from Service
     data = FinancialService.get_balance_general(start_date, end_date)
-    funnel_stats = FinancialService.get_funnel_stats()
+    funnel_stats = FinancialService.get_funnel_stats(start_date, end_date)
 
     # Pagination for Diagnoses
     page_diag = request.args.get('page_diag', 1, type=int)
@@ -37,9 +37,9 @@ def accounting_dashboard():
     recent_installments = q_recent_inst.order_by(ContractInstallment.fecha_vencimiento.desc()).paginate(page=page_inst, per_page=20)
     
     return render_template('accounting.html', 
-                           income_diagnosis=data['income_diagnosis'],
-                           income_installments=data['income_installments'],
-                           total_gross_income=data['total_gross_income'],
+                           income_diagnosis=data.get('income_diagnosis', 0),
+                           income_installments=data.get('income_installments', 0),
+                           total_gross_income=data.get('total_gross_income', 0),
                            funnel_stats=funnel_stats,
                            recent_diagnoses=recent_diagnoses,
                            recent_installments=recent_installments,
@@ -48,79 +48,26 @@ def accounting_dashboard():
                            end_date=end_date)
 
 
-@financial_bp.route('/balance_general', methods=['GET', 'POST'])
+@financial_bp.route('/balance_general', methods=['GET'])
 @login_required
 @role_required(['Admin', 'Abogado'])
 def balance_general():
     start_date = request.args.get('start_date')
     end_date = request.args.get('end_date')
-    
-    # Handle New Expense Submission
-    if request.method == 'POST':
-        try:
-            saved_count = 0
-            # Determine date context
-            current_date_for_expense = datetime.now().date()
-            if end_date:
-                try:
-                    current_date_for_expense = datetime.strptime(end_date, '%Y-%m-%d').date()
-                except ValueError:
-                    pass
-
-            for i in range(1, 6):
-                desc = request.form.get(f'descripcion_{i}')
-                val = request.form.get(f'valor_{i}')
-                fecha_input = request.form.get(f'fecha_{i}') 
-
-                if desc and val:
-                    try:
-                        val_float = float(val)
-                        if val_float > 0:
-                            # Determine date
-                            expense_date = current_date_for_expense
-                            if fecha_input:
-                                try:
-                                    expense_date = datetime.strptime(fecha_input, '%Y-%m-%d').date()
-                                except ValueError:
-                                    pass
-                            
-                            new_expense = AdministrativeExpense(
-                                descripcion=desc,
-                                valor=val_float,
-                                fecha=expense_date
-                            )
-                            db.session.add(new_expense)
-                            saved_count += 1
-                    except ValueError:
-                        continue
-            
-            if saved_count > 0:
-                db.session.commit()
-                flash(f'{saved_count} gastos registrados exitosamente.', 'success')
-            else:
-                flash('No se registraron gastos válidos.', 'warning')
-                
-        except Exception as e:
-            db.session.rollback()
-            flash(f'Error al guardar gastos: {str(e)}', 'danger')
-            
-        return redirect(url_for('financial.balance_general', start_date=start_date, end_date=end_date))
 
     # Get Data
     data = FinancialService.get_balance_general(start_date, end_date)
-    
-    # Pagination for Expenses
-    page = request.args.get('page', 1, type=int)
-    expenses = data['q_expenses_list'].order_by(AdministrativeExpense.fecha.desc()).paginate(page=page, per_page=20)
 
     return render_template('balance_general.html',
-                           total_ingresos=data['total_ingresos'],
-                           total_gastos=data['total_gastos'],
-                           costo_negocio=data['costo_negocio'],
-                           utilidad_neta=data['utilidad_neta'],
-                           expenses=expenses,
-                           start_date=start_date,
-                           end_date=end_date)
+                           total_ingresos=data.get('total_ingresos', 0),
+                           costo_negocio=data.get('costo_negocio', 0),
+                           utilidad_neta=data.get('utilidad_neta', 0),
+                           costos_totales=data['costos_totales'],
+                           gastos_administrativos=data['gastos_administrativos'],
+                           ventas_totales=data['ventas_totales'],
+                           impuestos_clientes=data['impuestos_clientes'],
+                           start_date=data['start_date_used'],
+                           end_date=data['end_date_used'])
 
 
 @financial_bp.route('/balance_general/pdf')
@@ -143,21 +90,34 @@ def download_balance_pdf():
     data = FinancialService.get_balance_general(start_date, end_date)
     
     # Execute queries for PDF (Lists, not query objects)
-    expenses_list = data['q_expenses_list'].order_by(AdministrativeExpense.fecha.desc()).all()
+    expenses_list = [] # Expenses are now separated
+
     recent_diagnoses = data['q_recent_diag'].order_by(PaymentDiagnosis.fecha_pago.desc()).limit(20).all()
     recent_installments = data['q_recent_inst'].order_by(ContractInstallment.fecha_vencimiento.desc()).limit(20).all()
 
     # Context for PDF
     context = {
-        'total_ingresos': data['total_ingresos'],
-        'total_gastos': data['total_gastos'],
-        'costo_negocio': data['costo_negocio'],
-        'utilidad_neta': data['utilidad_neta'],
+        'total_ingresos': data.get('total_ingresos', 0),
+        'costo_negocio': data.get('costo_negocio', 0),
+        'utilidad_neta': data.get('utilidad_neta', 0),
+        'costos_totales': data['costos_totales'],
+        'ventas_totales': data['ventas_totales'],
+        'ventas_diagnosticos': data.get('ventas_diagnosticos', 0),
+        'ventas_contratos': data.get('ventas_contratos', 0),
+        'costos_directos': data.get('costos_directos', 0),
+        'costos_indirectos': data.get('costos_indirectos', 0),
+        'gastos_administrativos': data['gastos_administrativos'],
+        'utilidad_bruta': data['ventas_totales'] - (data['costos_totales'] + data['gastos_administrativos']),
+        'total_iva': data.get('total_iva', 0),
+        'total_retefuente': data.get('total_retefuente', 0),
+        'total_ica': data.get('total_ica', 0),
+        'impuestos_clientes': data['impuestos_clientes'],
+        'utilidad_neta': data['ventas_totales'] - (data['costos_totales'] + data['gastos_administrativos']) - data['impuestos_clientes'],
         'expenses': expenses_list,
         'recent_diagnoses': recent_diagnoses,
         'recent_installments': recent_installments,
-        'start_date': start_date,
-        'end_date': end_date,
+        'start_date': data['start_date_used'],
+        'end_date': data['end_date_used'],
         'generation_date': datetime.now().strftime('%Y-%m-%d %H:%M')
     }
 
@@ -171,3 +131,60 @@ def download_balance_pdf():
     except Exception as e:
         flash(f"Error al generar el reporte: {str(e)}", "danger")
         return redirect(url_for('financial.balance_general'))
+
+@financial_bp.route('/gastos', methods=['GET', 'POST'])
+@login_required
+@role_required(['Admin', 'Abogado'])
+def panel_gastos():
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+
+    if request.method == 'POST':
+        tipo = request.form.get('tipo')
+        descripcion = request.form.get('descripcion')
+        valor_base = request.form.get('valor_base')
+        valor_impuesto = request.form.get('valor_impuesto', 0.0)
+        
+        if not (tipo and descripcion and valor_base):
+            flash('Por favor complete todos los campos obligatorios del gasto.', 'warning')
+        else:
+            try:
+                # Determinar fecha o usar actual
+                expense_date = datetime.now()
+                fecha_input = request.form.get('fecha')
+                if fecha_input:
+                    try:
+                        expense_date = datetime.strptime(fecha_input, '%Y-%m-%d')
+                    except ValueError:
+                        pass
+                
+                new_expense = Expense(
+                    tipo=tipo,
+                    descripcion=descripcion,
+                    valor_base=float(valor_base),
+                    valor_impuesto=float(valor_impuesto),
+                    fecha=expense_date,
+                    usuario_id=current_user.id
+                )
+                db.session.add(new_expense)
+                db.session.commit()
+                flash('Gasto registrado exitosamente.', 'success')
+            except Exception as e:
+                db.session.rollback()
+                flash(f'Error al registrar gasto: {str(e)}', 'danger')
+        
+        return redirect(url_for('financial.panel_gastos', start_date=start_date, end_date=end_date))
+
+    # Calculate summary
+    summary = FinancialService.get_expense_summary(start_date, end_date)
+    
+    # Pagination
+    page = request.args.get('page', 1, type=int)
+    expenses = summary['q_expenses_list'].order_by(Expense.fecha.desc()).paginate(page=page, per_page=20)
+
+    return render_template('gastos.html', 
+                           summary=summary,
+                           expenses=expenses,
+                           start_date=start_date,
+                           end_date=end_date)
+

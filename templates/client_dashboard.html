@@ -328,6 +328,74 @@
                 </div>
             </div>
 
+            <!-- Negotiations Section -->
+            {% set client_negs = [] %}
+            {% for obl in client.financial_obligations %}
+                {% for neg in obl.negotiations %}
+                    {% if client_negs.append(neg) %}{% endif %}
+                {% endfor %}
+            {% endfor %}
+            
+            {% if client_negs %}
+            <div class="mb-3 fade-in" style="animation-delay: 0.15s;">
+                <h5 class="fw-bold text-dark mb-3 ps-2 border-start border-4 border-danger">Negociaciones</h5>
+                <div class="row g-3">
+                    {% for neg in client_negs %}
+                    <div class="col-md-6">
+                        <div class="dashboard-card p-3">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <div class="fw-bold text-primary">{{ neg.obligation.entidad }}</div>
+                                {% if neg.estado == 'Negociada' %}
+                                <span class="badge bg-success">Negociada</span>
+                                {% elif neg.estado == 'En Proceso' %}
+                                <span class="badge bg-info text-dark">En Proceso</span>
+                                {% elif neg.estado == 'Pendiente' %}
+                                <span class="badge bg-warning text-dark">Pendiente</span>
+                                {% elif neg.estado == 'Finalizada' %}
+                                <span class="badge bg-dark">Finalizada</span>
+                                {% else %}
+                                <span class="badge bg-secondary">{{ neg.estado }}</span>
+                                {% endif %}
+                            </div>
+
+                            <div class="row g-2 mb-2">
+                                <div class="col-6">
+                                    <small class="text-muted d-block">Deuda Original</small>
+                                    <span class="text-danger fw-bold">${{ "{:,.0f}".format(neg.obligation.valor) }}</span>
+                                </div>
+                                <div class="col-6">
+                                    <small class="text-muted d-block">Valor Negociado</small>
+                                    {% if neg.valor_negociado %}
+                                    <span class="text-success fw-bold">${{ "{:,.0f}".format(neg.valor_negociado) }}</span>
+                                    {% else %}
+                                    <span class="text-muted">En proceso</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            {% if neg.valor_negociado and neg.valor_negociado > 0 %}
+                            {% set ahorro = neg.obligation.valor - neg.valor_negociado %}
+                            <div class="bg-success bg-opacity-10 rounded p-2 text-center mb-2">
+                                <small class="text-success fw-bold">
+                                    <i class="bi bi-arrow-down-circle me-1"></i>
+                                    Ahorro: ${{ "{:,.0f}".format(ahorro) }}
+                                    ({{ "%.1f"|format((ahorro / neg.obligation.valor) * 100) }}%)
+                                </small>
+                            </div>
+                            {% endif %}
+
+                            {% if neg.condiciones %}
+                            <div class="small text-muted mt-2">
+                                <strong>Condiciones:</strong> {{ neg.condiciones }}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
             <!-- Contract Progress -->
             <div class="card dashboard-card mb-3 fade-in" style="animation-delay: 0.2s;">
                 <div

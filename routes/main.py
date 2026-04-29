@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request, send_from_directory, current_app, jsonify
 from flask_login import login_required, logout_user, current_user
-from models import db, Client, CaseMessage, ClientNote, ContractInstallment, Document, User, ClientStatus
+from models import db, Client, CaseMessage, ClientNote, ContractInstallment, Document, User, ClientStatus, Negotiation, FinancialObligation
 from services.financial_service import FinancialService
 from services.document_service import DocumentService
 from services.client_service import ClientService
@@ -23,6 +23,8 @@ def index():
             return redirect(url_for('aliados.aliados_dashboard'))
         elif current_user.rol == 'Abogado':
             return redirect(url_for('lawyer.lawyer_dashboard'))
+        elif current_user.rol == 'Negociador':
+            return redirect(url_for('negociador.dashboard'))
         elif current_user.rol == 'Cliente':
             return redirect(url_for('main.client_portal'))
     return redirect(url_for('auth.login'))
@@ -48,6 +50,16 @@ def client_detail(client_id):
     if current_user.rol == 'Radicador' and client.radicador_id != current_user.id:
         flash('No tienes permiso para ver este expediente.', 'danger')
         return redirect(url_for('radicador.dashboard'))
+
+    if current_user.rol == 'Negociador' and client.negociador_id != current_user.id:
+        # Also check if this negociador has any negotiation on this client
+        has_negotiation = Negotiation.query.join(FinancialObligation).filter(
+            FinancialObligation.client_id == client_id,
+            Negotiation.negociador_id == current_user.id
+        ).first()
+        if not has_negotiation:
+            flash('No tienes permiso para ver este expediente.', 'danger')
+            return redirect(url_for('negociador.dashboard'))
     
     # Mark messages as read if Abogado is viewing
     if current_user.rol == 'Abogado' and client.abogado_id == current_user.id:
@@ -84,9 +96,11 @@ def client_detail(client_id):
     notes = ClientNote.query.filter_by(client_id=client_id).order_by(ClientNote.timestamp.desc()).all()
 
     radicadores = []
+    negociadores = []
     all_users = []
     if current_user.rol in ['Abogado', 'Admin']:
         radicadores = User.query.filter_by(rol='Radicador').all()
+        negociadores = User.query.filter_by(rol='Negociador').all()
         all_users = User.query.filter(User.rol != 'Cliente').all()
 
     # Verify if Prospect needs to complete info
@@ -94,7 +108,12 @@ def client_detail(client_id):
     if client.estado == ClientStatus.PROSPECTO and client.payment_diagnosis and client.payment_diagnosis.verificado:
         completion_required = True
 
-    return render_template('client_detail.html', client=client, files=files, documents=documents, messages=messages, notes=notes, radicadores=radicadores, all_users=all_users, completion_required=completion_required)
+    # Get negotiations for this client
+    client_negotiations = Negotiation.query.join(FinancialObligation).filter(
+        FinancialObligation.client_id == client_id
+    ).order_by(Negotiation.created_at.desc()).all()
+
+    return render_template('client_detail.html', client=client, files=files, documents=documents, messages=messages, notes=notes, radicadores=radicadores, negociadores=negociadores, all_users=all_users, completion_required=completion_required, client_negotiations=client_negotiations)
 
 @main_bp.route('/client/<int:client_id>/upload', methods=['POST'])
 @login_required
@@ -250,6 +269,10 @@ def edit_client(client_id):
     if 'contract_number' in request.form:
         val = request.form['contract_number'].strip()
         client.contract_number = val if val else None
+        
+    # Si la petición trae datos del formulario principal, actualizamos el checkbox de IVA
+    if 'nombre' in request.form or 'tipo_id' in request.form:
+        client.es_responsable_iva = 'es_responsable_iva' in request.form
     
     # Logic to Promote Prospecto -> Nuevo
     if request.form.get('promote_to_new') == '1' and client.estado == ClientStatus.PROSPECTO:
@@ -263,7 +286,7 @@ def edit_client(client_id):
 
 @main_bp.route('/client/<int:client_id>/add_note', methods=['POST'])
 @login_required
-@role_required(['Analista', 'Abogado', 'Admin', 'Aliado', 'Radicador'])
+@role_required(['Analista', 'Abogado', 'Admin', 'Aliado', 'Radicador', 'Negociador'])
 def add_note(client_id):
     content = request.form.get('note_content', '').strip()
     if content:

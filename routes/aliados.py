@@ -94,16 +94,19 @@ def send_to_lawyer(client_id):
 
 @aliados_bp.route('/aliados/pagos')
 @login_required
-@role_required(['Aliado'])
+@role_required(['Aliado', 'Admin'])
 def mis_pagos():
 
-    
-    pagos = AllyPayment.query.filter_by(ally_id=current_user.id).order_by(AllyPayment.created_at.desc()).all()
+    if current_user.rol == 'Admin':
+        pagos = AllyPayment.query.order_by(AllyPayment.created_at.desc()).all()
+    else:
+        pagos = AllyPayment.query.filter_by(ally_id=current_user.id).order_by(AllyPayment.created_at.desc()).all()
+        
     return render_template('aliados/pagos.html', pagos=pagos)
 
 @aliados_bp.route('/aliados/pagos/upload', methods=['POST'])
 @login_required
-@role_required(['Aliado'])
+@role_required(['Aliado', 'Admin'])
 def upload_pago():
 
     try:
@@ -121,12 +124,16 @@ def upload_pago():
 
 @aliados_bp.route('/aliados/pagos/download/<filename>')
 @login_required
-@role_required(['Aliado'])
+@role_required(['Aliado', 'Admin'])
 def download_pago(filename):
 
          
-    # Ensure user owns the file
-    payment = AllyPayment.query.filter_by(filename=filename, ally_id=current_user.id).first()
+    # Ensure user owns the file or is Admin
+    if current_user.rol == 'Admin':
+        payment = AllyPayment.query.filter_by(filename=filename).first()
+    else:
+        payment = AllyPayment.query.filter_by(filename=filename, ally_id=current_user.id).first()
+        
     if not payment:
          flash('Archivo no encontrado o acceso denegado', 'danger')
          return redirect(url_for('aliados.mis_pagos'))

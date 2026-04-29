@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-chat-dots me-2"></i>Mis Negociaciones</h2>
+    <span class="badge bg-dark fs-6 px-3 py-2">{{ negotiations.total }} caso{{ 's' if negotiations.total != 1 }}</span>
+</div>
+
+<!-- KPI Cards -->
+<div class="row g-3 mb-4">
+    {% set pendientes = negotiations.items | selectattr('estado', 'equalto', 'Pendiente') | list | length %}
+    {% set en_proceso = negotiations.items | selectattr('estado', 'equalto', 'En Proceso') | list | length %}
+    {% set negociadas = negotiations.items | selectattr('estado', 'equalto', 'Negociada') | list | length %}
+    {% set finalizadas = negotiations.items | selectattr('estado', 'equalto', 'Finalizada') | list | length %}
+    
+    <div class="col-6 col-md-3">
+        <div class="card border-0 shadow-sm text-center py-3" style="border-left: 4px solid #ffc107 !important;">
+            <div class="h3 fw-bold text-warning mb-0">{{ pendientes }}</div>
+            <small class="text-muted text-uppercase">Pendientes</small>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card border-0 shadow-sm text-center py-3" style="border-left: 4px solid #0dcaf0 !important;">
+            <div class="h3 fw-bold text-info mb-0">{{ en_proceso }}</div>
+            <small class="text-muted text-uppercase">En Proceso</small>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card border-0 shadow-sm text-center py-3" style="border-left: 4px solid #198754 !important;">
+            <div class="h3 fw-bold text-success mb-0">{{ negociadas }}</div>
+            <small class="text-muted text-uppercase">Negociadas</small>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card border-0 shadow-sm text-center py-3" style="border-left: 4px solid #212529 !important;">
+            <div class="h3 fw-bold text-dark mb-0">{{ finalizadas }}</div>
+            <small class="text-muted text-uppercase">Finalizadas</small>
+        </div>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="card shadow-sm mb-4">
+    <div class="card-header bg-light">
+        <h5 class="mb-0">Filtros de Búsqueda</h5>
+    </div>
+    <div class="card-body">
+        <form method="GET" action="{{ url_for('negociador.dashboard') }}" class="row g-3">
+            <div class="col-md-5">
+                <label for="nombre" class="form-label">Nombre o Cédula del Cliente</label>
+                <input type="text" class="form-control" id="nombre" name="nombre" placeholder="Nombre o cédula..."
+                    value="{{ request.args.get('nombre', '') }}">
+            </div>
+            <div class="col-md-4">
+                <label for="estado" class="form-label">Estado Negociación</label>
+                <select class="form-select" id="estado" name="estado">
+                    <option value="">Todos</option>
+                    <option value="Pendiente" {% if request.args.get('estado')=='Pendiente' %}selected{% endif %}>Pendiente</option>
+                    <option value="En Proceso" {% if request.args.get('estado')=='En Proceso' %}selected{% endif %}>En Proceso</option>
+                    <option value="Negociada" {% if request.args.get('estado')=='Negociada' %}selected{% endif %}>Negociada</option>
+                    <option value="Finalizada" {% if request.args.get('estado')=='Finalizada' %}selected{% endif %}>Finalizada</option>
+                    <option value="Cancelada" {% if request.args.get('estado')=='Cancelada' %}selected{% endif %}>Cancelada</option>
+                </select>
+            </div>
+            <div class="col-md-3 d-flex align-items-end">
+                <div class="d-grid gap-2 w-100">
+                    <button type="submit" class="btn btn-primary">Buscar</button>
+                    <a href="{{ url_for('negociador.dashboard') }}" class="btn btn-outline-secondary">Limpiar</a>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Negotiations List -->
+<div class="card shadow-sm">
+    <div class="card-header bg-light">
+        <h5 class="mb-0">Listado de Negociaciones</h5>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead>
+                    <tr>
+                        <th>Cliente</th>
+                        <th>Cédula</th>
+                        <th>Entidad</th>
+                        <th>Valor Deuda</th>
+                        <th>Valor Negociado</th>
+                        <th>Estado</th>
+                        <th>Fecha</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for neg in negotiations.items %}
+                    <tr>
+                        <td class="fw-bold">{{ neg.obligation.client.nombre }}</td>
+                        <td>{{ neg.obligation.client.tipo_id }} {{ neg.obligation.client.numero_id }}</td>
+                        <td>
+                            <span class="text-primary fw-bold">{{ neg.obligation.entidad }}</span>
+                            <br><small class="text-muted">{{ neg.obligation.estado }}</small>
+                        </td>
+                        <td>${{ "{:,.0f}".format(neg.obligation.valor) }}</td>
+                        <td>
+                            {% if neg.valor_negociado %}
+                            <span class="text-success fw-bold">${{ "{:,.0f}".format(neg.valor_negociado) }}</span>
+                            {% else %}
+                            <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if neg.estado == 'Pendiente' %}
+                            <span class="badge bg-warning text-dark">Pendiente</span>
+                            {% elif neg.estado == 'En Proceso' %}
+                            <span class="badge bg-info text-dark">En Proceso</span>
+                            {% elif neg.estado == 'Negociada' %}
+                            <span class="badge bg-success">Negociada</span>
+                            {% elif neg.estado == 'Finalizada' %}
+                            <span class="badge bg-dark">Finalizada</span>
+                            {% elif neg.estado == 'Cancelada' %}
+                            <span class="badge bg-danger">Cancelada</span>
+                            {% else %}
+                            <span class="badge bg-secondary">{{ neg.estado }}</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ neg.created_at.strftime('%Y-%m-%d') }}</td>
+                        <td class="d-flex gap-1">
+                            <a href="{{ url_for('negociador.negotiation_detail', negotiation_id=neg.id) }}"
+                                class="btn btn-sm btn-primary"><i class="bi bi-pencil-square me-1"></i>Gestionar</a>
+                            <a href="{{ url_for('main.client_detail', client_id=neg.obligation.client_id) }}"
+                                class="btn btn-sm btn-outline-secondary" title="Ver Cliente"><i class="bi bi-person"></i></a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="8" class="text-center text-muted py-5">
+                            <i class="bi bi-chat-left-text display-4 d-block mb-3 opacity-50"></i>
+                            No tienes negociaciones asignadas.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination Controls -->
+        {% if negotiations.pages > 1 %}
+        <nav aria-label="Page navigation" class="mt-4">
+            <ul class="pagination justify-content-center">
+                <li class="page-item {% if not negotiations.has_prev %}disabled{% endif %}">
+                    <a class="page-link"
+                        href="{{ url_for('negociador.dashboard', page=negotiations.prev_num, nombre=request.args.get('nombre'), estado=request.args.get('estado')) if negotiations.has_prev else '#' }}">Anterior</a>
+                </li>
+                {% for page_num in negotiations.iter_pages(left_edge=1, right_edge=1, left_current=1, right_current=2) %}
+                {% if page_num %}
+                <li class="page-item {% if page_num == negotiations.page %}active{% endif %}">
+                    <a class="page-link"
+                        href="{{ url_for('negociador.dashboard', page=page_num, nombre=request.args.get('nombre'), estado=request.args.get('estado')) }}">{{
+                        page_num }}</a>
+                </li>
+                {% else %}
+                <li class="page-item disabled"><span class="page-link">...</span></li>
+                {% endif %}
+                {% endfor %}
+                <li class="page-item {% if not negotiations.has_next %}disabled{% endif %}">
+                    <a class="page-link"
+                        href="{{ url_for('negociador.dashboard', page=negotiations.next_num, nombre=request.args.get('nombre'), estado=request.args.get('estado')) if negotiations.has_next else '#' }}">Siguiente</a>
+                </li>
+            </ul>
+        </nav>
+        {% endif %}
+
+    </div>
+</div>
+</div>
+{% endblock %}

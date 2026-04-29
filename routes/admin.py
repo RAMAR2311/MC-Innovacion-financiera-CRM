@@ -307,6 +307,76 @@ def reports():
         
     return render_template('admin/reports.html', report_data=report_data)
 
+@admin_bp.route('/admin/impuestos')
+@login_required
+@role_required(['Admin'])
+def impuestos_dashboard():
+    from models import Expense
+    from sqlalchemy import func
+    from datetime import datetime
+    
+    clients_iva = Client.query.filter_by(es_responsable_iva=True).all()
+    
+    total_iva_global = 0.0
+    total_retefuente_global = 0.0
+    total_ica_global = 0.0
+    
+    total_impuestos_gastos = db.session.query(func.sum(Expense.valor_impuesto)).scalar() or 0.0
+    
+    operaciones = []
+    
+    for client in clients_iva:
+        # Diagnósticos
+        if client.payment_diagnosis and client.payment_diagnosis.verificado:
+            base_diag = float(client.payment_diagnosis.valor or 0)
+            if base_diag > 0:
+                taxes = FinancialService.calculate_taxes(base_diag, True)
+                total_iva_global += taxes['iva']
+                total_retefuente_global += taxes['retefuente']
+                total_ica_global += taxes['ica']
+                operaciones.append({
+                    'cliente': client.nombre,
+                    'tipo_operacion': 'Diagnóstico Inicial',
+                    'fecha': client.payment_diagnosis.fecha_pago,
+                    'valor_base': base_diag,
+                    'iva': taxes['iva'],
+                    'retefuente': taxes['retefuente'],
+                    'ica': taxes['ica']
+                })
+                
+        # Cuotas de Contratos
+        if client.payment_contract and client.payment_contract.installments:
+            for inst in client.payment_contract.installments:
+                if inst.estado == 'Pagada':
+                    base_inst = float(inst.valor or 0)
+                    if base_inst > 0:
+                        taxes = FinancialService.calculate_taxes(base_inst, True)
+                        total_iva_global += taxes['iva']
+                        total_retefuente_global += taxes['retefuente']
+                        total_ica_global += taxes['ica']
+                        operaciones.append({
+                            'cliente': client.nombre,
+                            'tipo_operacion': f'Cuota {inst.numero_cuota}',
+                            'fecha': inst.fecha_vencimiento,
+                            'valor_base': base_inst,
+                            'iva': taxes['iva'],
+                            'retefuente': taxes['retefuente'],
+                            'ica': taxes['ica']
+                        })
+                        
+    # Sort operaciones
+    try:
+        operaciones.sort(key=lambda x: x['fecha'] or datetime.min.date(), reverse=True)
+    except Exception:
+        pass # Ignore sort errors if mixed types
+
+    return render_template('admin/impuestos.html',
+                           total_iva_global=total_iva_global,
+                           total_retefuente_global=total_retefuente_global,
+                           total_ica_global=total_ica_global,
+                           total_impuestos_gastos=total_impuestos_gastos,
+                           operaciones=operaciones)
+
 @admin_bp.route('/admin/import_clients', methods=['POST'])
 @login_required
 @role_required(['Admin', 'Analista', 'Aliado'])

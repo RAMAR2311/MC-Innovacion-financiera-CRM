@@ -10,7 +10,7 @@ class User(UserMixin, db.Model):
     telefono = db.Column(db.String(20))
     email = db.Column(db.String(120), unique=True, nullable=False, index=True)
 
-    rol = db.Column(db.String(20), nullable=False)  # 'Admin', 'Analista', 'Abogado', 'Aliado'
+    rol = db.Column(db.String(20), nullable=False)  # 'Admin', 'Analista', 'Abogado', 'Aliado', 'Radicador', 'Negociador'
     password = db.Column(db.String(200)) # Added password for auth
     is_active = db.Column(db.Boolean, default=True) # Added for portal revocation
 
@@ -41,11 +41,13 @@ class Client(db.Model):
     email = db.Column(db.String(120), index=True)
 
     ciudad = db.Column(db.String(50))
+    es_responsable_iva = db.Column(db.Boolean, default=False)
     motivo_consulta = db.Column(db.Text)
     estado = db.Column(db.String(50), default=ClientStatus.NUEVO) # Use keys from ClientStatus
     analista_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     abogado_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     radicador_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    negociador_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     conclusion_analisis = db.Column(db.Text) # New field for analysis conclusion
     last_status_update = db.Column(db.DateTime, default=datetime.utcnow) # New field for last status update
@@ -55,6 +57,7 @@ class Client(db.Model):
     login_user = db.relationship('User', foreign_keys=[login_user_id], backref='client_profile')
     abogado = db.relationship('User', foreign_keys=[abogado_id], backref='casos_asignados')
     radicador = db.relationship('User', foreign_keys=[radicador_id], backref='casos_radicados')
+    negociador = db.relationship('User', foreign_keys=[negociador_id], backref='casos_negociados')
 
 
 class FinancialObligation(db.Model):
@@ -182,3 +185,29 @@ class ClientNote(db.Model):
 
     author = db.relationship('User', backref='notes_authored')
     client = db.relationship('Client', backref=db.backref('notes', cascade='all, delete-orphan'))
+
+class Expense(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    tipo = db.Column(db.String(50), nullable=False) # 'Costo Indirecto' o 'Gasto Operativo'
+    descripcion = db.Column(db.String(255), nullable=False)
+    valor_base = db.Column(db.Float, nullable=False)
+    valor_impuesto = db.Column(db.Float, default=0.0)
+    fecha = db.Column(db.DateTime, default=datetime.utcnow)
+    usuario_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+
+    usuario = db.relationship('User', backref='expenses_registered')
+
+class Negotiation(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    obligation_id = db.Column(db.Integer, db.ForeignKey('financial_obligation.id'), nullable=False)
+    negociador_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    estado = db.Column(db.String(50), default='Pendiente') # 'Pendiente', 'En Proceso', 'Negociada', 'Finalizada', 'Cancelada'
+    valor_negociado = db.Column(db.Numeric(15, 2), nullable=True)
+    condiciones = db.Column(db.Text, nullable=True)  # Condiciones de la negociación
+    observaciones = db.Column(db.Text, nullable=True)  # Notas del negociador
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    obligation = db.relationship('FinancialObligation', backref=db.backref('negotiations', lazy=True))
+    negociador = db.relationship('User', backref='negociaciones_asignadas')
+
