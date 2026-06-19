@@ -119,7 +119,11 @@ if __name__ == '__main__':
         if not User.query.filter_by(email='admin@mc.com').first():
             from werkzeug.security import generate_password_hash
             hashed_pw = generate_password_hash('admin')
-            admin = User(nombre_completo='Admin', email='admin@mc.com', rol='Admin', password=hashed_pw) 
+            admin = User()
+            admin.nombre_completo = 'Admin'
+            admin.email = 'admin@mc.com'
+            admin.rol = 'Admin'
+            admin.password = hashed_pw
             db.session.add(admin)
             db.session.commit()
             print("Admin user created.")

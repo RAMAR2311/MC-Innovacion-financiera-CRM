@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+
+{% block content %}
+<!-- Select2 CSS -->
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet" />
+
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="bi bi-receipt me-2 text-primary"></i>Generador de Comprobantes</h2>
+    </div>
+
+    <div class="card shadow-sm border-0">
+        <div class="card-body p-4">
+            <form action="{{ url_for('main.generar_comprobante') }}" method="POST" id="comprobanteForm">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                
+                <div class="row g-4">
+                    <!-- Cliente -->
+                    <div class="col-md-6">
+                        <label for="client_id" class="form-label fw-bold">Seleccionar Cliente</label>
+                        <select class="form-select form-select-lg shadow-none" id="client_id" name="client_id" required>
+                            <option value="" selected disabled>Seleccione un cliente...</option>
+                            {% for client in clients %}
+                            <option value="{{ client.id }}">{{ client.nombre }} ({{ client.numero_id }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- Tipo de Comprobante -->
+                    <div class="col-md-6">
+                        <label for="tipo" class="form-label fw-bold">Tipo de Comprobante</label>
+                        <select class="form-select form-select-lg shadow-none" id="tipo" name="tipo" required disabled>
+                            <option value="" selected disabled>Seleccione primero un cliente</option>
+                            <option value="analisis" id="opt_analisis" style="display: none;">Análisis Inicial</option>
+                            <option value="cuota" id="opt_cuota" style="display: none;">Cuota de Contrato</option>
+                        </select>
+                    </div>
+
+                    <!-- Cuota a Seleccionar -->
+                    <div class="col-md-12" id="cuota_selection" style="display: none;">
+                        <label for="installment_id" class="form-label fw-bold">Seleccionar Cuota</label>
+                        <select class="form-select shadow-none" id="installment_id" name="installment_id">
+                            <option value="" selected disabled>Seleccione una cuota...</option>
+                            <!-- Options filled via JS -->
+                        </select>
+                    </div>
+
+                    <div class="col-12 mt-4 text-end">
+                        <button type="submit" class="btn btn-primary btn-lg px-5" id="btnGenerar" disabled>
+                            <i class="bi bi-file-earmark-pdf me-2"></i>Generar Comprobante
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% block scripts %}
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Inicializar Select2 para búsqueda dinámica
+    $('#client_id').select2({
+        theme: 'bootstrap-5',
+        placeholder: 'Seleccione o busque un cliente...',
+        width: '100%',
+        language: {
+            noResults: function() { return "No se encontraron clientes"; }
+        }
+    });
+
+    const clientSelect = $('#client_id');
+    const tipoSelect = document.getElementById('tipo');
+    const cuotaContainer = document.getElementById('cuota_selection');
+    const installmentSelect = document.getElementById('installment_id');
+    const btnGenerar = document.getElementById('btnGenerar');
+    
+    let currentInstallments = [];
+
+    clientSelect.on('change', function() {
+        const clientId = this.value;
+        if (!clientId) return;
+
+        // Reset
+        tipoSelect.disabled = true;
+        tipoSelect.value = "";
+        document.getElementById('opt_analisis').style.display = 'none';
+        document.getElementById('opt_cuota').style.display = 'none';
+        cuotaContainer.style.display = 'none';
+        btnGenerar.disabled = true;
+
+        fetch(`/api/comprobantes/client/${clientId}`)
+            .then(res => res.json())
+            .then(data => {
+                tipoSelect.disabled = false;
+                tipoSelect.options[0].text = "Seleccione el tipo...";
+                
+                if (data.diagnosis) {
+                    document.getElementById('opt_analisis').style.display = 'block';
+                }
+                if (data.installments && data.installments.length > 0) {
+                    document.getElementById('opt_cuota').style.display = 'block';
+                    currentInstallments = data.installments;
+                }
+            })
+            .catch(err => {
+                console.error("Error al obtener datos del cliente", err);
+                alert("Hubo un error cargando los datos del cliente.");
+            });
+    });
+
+    tipoSelect.addEventListener('change', function() {
+        const tipo = this.value;
+        btnGenerar.disabled = false;
+        
+        if (tipo === 'cuota') {
+            cuotaContainer.style.display = 'block';
+            installmentSelect.required = true;
+            installmentSelect.innerHTML = '<option value="" selected disabled>Seleccione una cuota...</option>';
+            
+            currentInstallments.forEach(inst => {
+                const opt = document.createElement('option');
+                opt.value = inst.id;
+                let text = `${inst.concepto} - $${new Intl.NumberFormat('es-CO').format(inst.valor)} - ${inst.fecha_vencimiento} (${inst.estado})`;
+                opt.textContent = text;
+                installmentSelect.appendChild(opt);
+            });
+        } else {
+            cuotaContainer.style.display = 'none';
+            installmentSelect.required = false;
+        }
+    });
+});
+</script>
+{% endblock %}

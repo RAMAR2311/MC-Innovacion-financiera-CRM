@@ -64,7 +64,7 @@ def lawyer_dashboard():
 
 @lawyer_bp.route('/client/<int:client_id>/save_payment_diagnosis', methods=['POST'])
 @login_required
-@role_required(['Abogado', 'Aliado', 'Admin', 'Radicador'])
+@role_required(['Abogado', 'Aliado', 'Admin', 'Radicador', 'Analista'])
 def save_payment_diagnosis(client_id):
 
 

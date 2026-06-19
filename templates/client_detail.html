@@ -275,6 +275,11 @@
                         <i class="bi bi-check-circle me-1"></i> Habilitado<br>
                         <strong>{{ client.login_user.email }}</strong>
                     </div>
+                    
+                    <button type="button" class="btn btn-primary btn-sm w-100 mb-2" data-bs-toggle="modal" data-bs-target="#changeClientPassModal">
+                        <i class="bi bi-key"></i> Cambiar Contraseña
+                    </button>
+                    
                     <form action="{{ url_for('admin.revoke_client_access', client_id=client.id) }}" method="POST"
                         onsubmit="return confirm('¿Estás seguro de que deseas denegar el acceso a este cliente?')">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
@@ -449,9 +454,11 @@
                                         <div class="d-flex justify-content-between align-items-center">
                                             <span class="fw-bold text-primary">{{ obligation.entidad }}</span>
                                             <div class="d-flex align-items-center gap-2">
-                                                <span class="badge bg-light text-dark border">{{ obligation.estado
-                                                    }}</span>
-                                                {% if current_user.rol == 'Admin' %}
+                                                <span class="badge bg-light text-dark border">{{ obligation.estado }}</span>
+                                                {% if current_user.rol in ['Admin', 'Abogado'] %}
+                                                <button type="button" class="btn btn-link text-primary p-0 border-0 bg-transparent ms-2 me-1" title="Editar" data-bs-toggle="modal" data-bs-target="#editObligationModal{{ obligation.id }}">
+                                                    <i class="bi bi-pencil"></i>
+                                                </button>
                                                 <form
                                                     action="{{ url_for('admin.delete_obligation', obligation_id=obligation.id) }}"
                                                     method="POST" class="d-inline"
@@ -461,6 +468,43 @@
                                                         class="btn btn-link text-danger p-0 border-0 bg-transparent"
                                                         title="Eliminar"><i class="bi bi-trash"></i></button>
                                                 </form>
+
+                                                <!-- Modal de Edición -->
+                                                <div class="modal fade" id="editObligationModal{{ obligation.id }}" tabindex="-1">
+                                                    <div class="modal-dialog">
+                                                        <div class="modal-content">
+                                                            <div class="modal-header">
+                                                                <h5 class="modal-title text-dark">Editar Obligación</h5>
+                                                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                                            </div>
+                                                            <form action="{{ url_for('main.edit_obligation', obligation_id=obligation.id) }}" method="POST">
+                                                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                                                                <div class="modal-body text-start text-dark">
+                                                                    <div class="mb-3">
+                                                                        <label class="form-label">Entidad</label>
+                                                                        <input type="text" class="form-control" name="entidad" value="{{ obligation.entidad }}" required>
+                                                                    </div>
+                                                                    <div class="mb-3">
+                                                                        <label class="form-label">Estado</label>
+                                                                        <select class="form-select" name="estado" required>
+                                                                            <option value="Al Día" {% if obligation.estado == 'Al Día' %}selected{% endif %}>Al Día</option>
+                                                                            <option value="Mora" {% if obligation.estado == 'Mora' %}selected{% endif %}>Mora</option>
+                                                                            <option value="Castigada" {% if obligation.estado == 'Castigada' %}selected{% endif %}>Castigada</option>
+                                                                        </select>
+                                                                    </div>
+                                                                    <div class="mb-3">
+                                                                        <label class="form-label">Valor</label>
+                                                                        <input type="number" step="0.01" class="form-control" name="valor" value="{{ obligation.valor }}" required>
+                                                                    </div>
+                                                                </div>
+                                                                <div class="modal-footer">
+                                                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                                                    <button type="submit" class="btn btn-primary">Guardar Cambios</button>
+                                                                </div>
+                                                            </form>
+                                                        </div>
+                                                    </div>
+                                                </div>
                                                 {% endif %}
                                             </div>
                                         </div>
@@ -570,7 +614,7 @@
                             <form action="{{ url_for('lawyer.save_payment_diagnosis', client_id=client.id) }}"
                                 method="POST" class="mb-5">
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-                                <fieldset {% if not can_edit_financials %}disabled{% endif %}>
+                                <fieldset {% if current_user.rol not in ['Abogado', 'Aliado', 'Admin', 'Radicador', 'Analista'] %}disabled{% endif %}>
                                     <div class="row g-3 align-items-end">
                                         <div class="col-md-4">
                                             <label class="form-label small">Valor</label>
@@ -598,7 +642,7 @@
                                             </select>
                                         </div>
                                         <div class="col-md-2">
-                                            {% if can_edit_financials %}
+                                            {% if current_user.rol in ['Abogado', 'Aliado', 'Admin', 'Radicador', 'Analista'] %}
                                             <button type="submit" class="btn btn-primary btn-sm w-100">Guardar</button>
                                             {% endif %}
                                         </div>
@@ -1391,6 +1435,34 @@
 </div>
 {% endif %}
 
+<!-- Modal Cambiar Contraseña Cliente -->
+{% if client.login_user_id and client.login_user.is_active %}
+<div class="modal fade" id="changeClientPassModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title"><i class="bi bi-key me-2"></i>Cambiar Contraseña de Cliente</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{{ url_for('admin.change_user_password', user_id=client.login_user_id) }}" method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                <div class="modal-body">
+                    <p>Nueva contraseña para <strong>{{ client.nombre }}</strong>:</p>
+                    <div class="mb-3">
+                        <label class="form-label">Contraseña</label>
+                        <input type="password" class="form-control" name="new_password" required minlength="4">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Actualizar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 <script>
     document.addEventListener('DOMContentLoaded', function () {
         var completionRequired = "{{ 'true' if completion_required else 'false' }}" === 'true';
@@ -1398,6 +1470,41 @@
             var completeModal = new bootstrap.Modal(document.getElementById('completeInfoModal'));
             completeModal.show();
         }
+
+        // --- Restaurar Pestaña Activa ---
+        const activeTabId = sessionStorage.getItem('activeTabClientDetail_{{ client.id }}');
+        if (activeTabId) {
+            const tabElement = document.querySelector(`button[data-bs-target="${activeTabId}"]`);
+            if (tabElement) {
+                const tab = new bootstrap.Tab(tabElement);
+                tab.show();
+            }
+        }
+
+        // Guardar la pestaña activa al cambiar
+        const tabButtons = document.querySelectorAll('button[data-bs-toggle="tab"]');
+        tabButtons.forEach(button => {
+            button.addEventListener('shown.bs.tab', function (event) {
+                sessionStorage.setItem('activeTabClientDetail_{{ client.id }}', event.target.dataset.bsTarget);
+            });
+        });
+
+        // --- Restaurar Posición de Scroll ---
+        const scrollPos = sessionStorage.getItem('scrollPosClientDetail_{{ client.id }}');
+        if (scrollPos) {
+            setTimeout(() => {
+                window.scrollTo(0, parseInt(scrollPos));
+                sessionStorage.removeItem('scrollPosClientDetail_{{ client.id }}');
+            }, 100);
+        }
+
+        // Guardar la posición de scroll al enviar cualquier formulario
+        const forms = document.querySelectorAll('form');
+        forms.forEach(form => {
+            form.addEventListener('submit', function() {
+                sessionStorage.setItem('scrollPosClientDetail_{{ client.id }}', window.scrollY);
+            });
+        });
     });
 </script>
 {% endblock %}

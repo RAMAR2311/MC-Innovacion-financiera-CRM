@@ -47,6 +47,18 @@ class UserService:
             raise e
 
     @staticmethod
+    def change_password(user_id: int, new_password: str) -> None:
+        """
+        Changes a user's password.
+        """
+        if not new_password or len(new_password.strip()) < 4:
+            raise ValueError('La contraseña debe tener al menos 4 caracteres.')
+            
+        user = User.query.get_or_404(user_id)
+        user.password = generate_password_hash(new_password)
+        db.session.commit()
+
+    @staticmethod
     def generate_client_access(client_id: int) -> Optional[User]:
         """
         Generates or links a user account for a client.

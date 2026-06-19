@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="bi bi-file-earmark-check me-2 text-success"></i>Comprobante Generado</h2>
+        <a href="{{ url_for('main.comprobantes_index') }}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Volver
+        </a>
+    </div>
+
+    <div class="row g-4">
+        <!-- PDF Preview -->
+        <div class="col-lg-8">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-header bg-white border-bottom">
+                    <h5 class="mb-0"><i class="bi bi-file-pdf text-danger me-2"></i>Vista Previa</h5>
+                </div>
+                <div class="card-body p-0" style="height: 600px;">
+                    <iframe src="{{ url_for('main.download_file', filename=filename) }}" width="100%" height="100%" style="border: none;"></iframe>
+                </div>
+            </div>
+        </div>
+
+        <!-- Acciones -->
+        <div class="col-lg-4">
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-body text-center p-4">
+                    <h5 class="fw-bold mb-3">Información del Cliente</h5>
+                    <p class="mb-1 text-muted small">Nombre</p>
+                    <h6 class="mb-3">{{ client.nombre }}</h6>
+                    
+                    <p class="mb-1 text-muted small">Identificación</p>
+                    <h6 class="mb-3">{{ client.tipo_id }} {{ client.numero_id }}</h6>
+                    
+                    <p class="mb-1 text-muted small">Teléfono</p>
+                    <h6 class="mb-4">{{ client.telefono }}</h6>
+
+                    <hr>
+
+                    <h5 class="fw-bold mb-3 mt-4">Acciones</h5>
+                    
+                    <!-- Download/Print Button -->
+                    <a href="{{ url_for('main.download_file', filename=filename) }}" target="_blank" class="btn btn-dark w-100 mb-3">
+                        <i class="bi bi-printer me-2"></i>Imprimir / Descargar
+                    </a>
+
+                    <!-- WhatsApp Button -->
+                    {% set mensaje_wa = 'Hola ' + client.nombre + ', te comparto el comprobante de pago por concepto de ' + (tipo|title) + ' por un valor de $' + '{:,.0f}'.format(valor) + '. El documento oficial puedes descargarlo o visualizarlo ingresando al portal de clientes.' %}
+                    <a href="https://wa.me/57{{ client.telefono|replace(' ', '') }}?text={{ mensaje_wa|urlencode }}" target="_blank" class="btn btn-success w-100">
+                        <i class="bi bi-whatsapp me-2"></i>Enviar por WhatsApp
+                    </a>
+                    
+                    <div class="alert alert-info mt-4 small text-start">
+                        <i class="bi bi-info-circle me-1"></i> Este comprobante ya ha sido guardado automáticamente en la sección de "Documentos" del cliente y está visible en su portal.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

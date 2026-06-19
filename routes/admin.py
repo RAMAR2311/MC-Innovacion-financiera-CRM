@@ -168,6 +168,21 @@ def delete_user(user_id):
         
     return redirect(url_for('admin.admin_dashboard'))
 
+@admin_bp.route('/admin/change_password/<int:user_id>', methods=['POST'])
+@login_required
+@role_required(['Admin'])
+def change_user_password(user_id):
+    new_password = request.form.get('new_password')
+    try:
+        UserService.change_password(user_id, new_password)
+        flash('Contraseña actualizada exitosamente.', 'success')
+    except ValueError as e:
+        flash(str(e), 'warning')
+    except Exception as e:
+        flash(f'Error al cambiar contraseña: {str(e)}', 'danger')
+        
+    return redirect(request.referrer or url_for('admin.admin_dashboard'))
+
 @admin_bp.route('/client/<int:client_id>/generate_access', methods=['POST'])
 @login_required
 @role_required(['Admin'])
@@ -229,7 +244,7 @@ def delete_document(doc_id):
 
 @admin_bp.route('/admin/delete_obligation/<int:obligation_id>', methods=['POST'])
 @login_required
-@role_required(['Admin'])
+@role_required(['Admin', 'Abogado'])
 def delete_obligation(obligation_id):
     try:
         FinancialService.delete_obligation(obligation_id)

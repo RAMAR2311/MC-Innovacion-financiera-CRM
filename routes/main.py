@@ -9,6 +9,8 @@ from utils.decorators import role_required
 from utils.time_utils import get_colombia_now
 from datetime import datetime
 import os
+from werkzeug.security import generate_password_hash
+from werkzeug.utils import secure_filename
 
 main_bp = Blueprint('main', __name__)
 
@@ -179,6 +181,207 @@ def update_status(client_id):
         flash('Estado actualizado', 'success')
     return redirect(url_for('main.client_detail', client_id=client_id))
 
+@main_bp.route('/profile', methods=['POST'])
+@login_required
+def profile():
+    # Guardar nueva contraseña si se proporciona
+    new_password = request.form.get('new_password')
+    if new_password:
+        if len(new_password.strip()) < 4:
+            flash('La nueva contraseña debe tener al menos 4 caracteres.', 'warning')
+            return redirect(url_for('main.profile'))
+        current_user.password = generate_password_hash(new_password)
+        db.session.commit()
+        flash('Contraseña actualizada correctamente.', 'success')
+
+    # Guardar avatar
+    if 'avatar' in request.files:
+        file = request.files['avatar']
+        if file and file.filename != '':
+            filename = secure_filename(file.filename)
+            avatar_path = os.path.join(current_app.root_path, 'static', 'uploads', 'avatars', filename)
+            
+            # Asegurar que el directorio existe
+            os.makedirs(os.path.dirname(avatar_path), exist_ok=True)
+            file.save(avatar_path)
+            
+            current_user.avatar = filename
+            db.session.commit()
+            flash('Avatar actualizado correctamente.', 'success')
+
+    return redirect(url_for('main.profile'))
+
+
+# --- COMPROBANTES DE PAGO ---
+
+@main_bp.route('/comprobantes', methods=['GET'])
+@login_required
+@role_required(['Admin', 'Analista', 'Abogado'])
+def comprobantes_index():
+    # Obtener clientes según el rol
+    if current_user.rol == 'Admin':
+        clients = Client.query.all()
+    elif current_user.rol == 'Analista':
+        clients = Client.query.filter_by(analista_id=current_user.id).all()
+    elif current_user.rol == 'Abogado':
+        clients = Client.query.filter_by(abogado_id=current_user.id).all()
+    else:
+        clients = []
+        
+    return render_template('comprobantes/index.html', clients=clients)
+
+@main_bp.route('/api/comprobantes/client/<int:client_id>', methods=['GET'])
+@login_required
+@role_required(['Admin', 'Analista', 'Abogado'])
+def api_client_payments(client_id):
+    client = Client.query.get_or_404(client_id)
+    
+    # Validar acceso
+    if current_user.rol == 'Analista' and client.analista_id != current_user.id:
+        return jsonify({'error': 'Acceso denegado'}), 403
+    if current_user.rol == 'Abogado' and client.abogado_id != current_user.id:
+        return jsonify({'error': 'Acceso denegado'}), 403
+
+    data = {
+        'diagnosis': None,
+        'installments': []
+    }
+
+    if client.payment_diagnosis:
+        data['diagnosis'] = {
+            'valor': float(client.payment_diagnosis.valor) if client.payment_diagnosis.valor else 0,
+            'fecha_pago': client.payment_diagnosis.fecha_pago.strftime('%Y-%m-%d') if client.payment_diagnosis.fecha_pago else 'Pendiente'
+        }
+
+    if client.payment_contract and client.payment_contract.installments:
+        for inst in sorted(client.payment_contract.installments, key=lambda x: x.numero_cuota):
+            data['installments'].append({
+                'id': inst.id,
+                'numero_cuota': inst.numero_cuota,
+                'concepto': inst.concepto or f"Cuota {inst.numero_cuota}",
+                'valor': float(inst.valor) if inst.valor else 0,
+                'fecha_vencimiento': inst.fecha_vencimiento.strftime('%Y-%m-%d') if inst.fecha_vencimiento else 'Pendiente',
+                'estado': inst.estado
+            })
+
+    return jsonify(data)
+
+@main_bp.route('/comprobantes/generar', methods=['POST'])
+@login_required
+@role_required(['Admin', 'Analista', 'Abogado'])
+def generar_comprobante():
+    client_id = request.form.get('client_id')
+    tipo = request.form.get('tipo')
+    
+    if not client_id or not tipo:
+        flash('Faltan datos para generar el comprobante.', 'danger')
+        return redirect(url_for('main.comprobantes_index'))
+
+    client = Client.query.get_or_404(client_id)
+
+    # Validar acceso
+    if current_user.rol == 'Analista' and client.analista_id != current_user.id:
+        flash('Acceso denegado a este cliente.', 'danger')
+        return redirect(url_for('main.comprobantes_index'))
+    if current_user.rol == 'Abogado' and client.abogado_id != current_user.id:
+        flash('Acceso denegado a este cliente.', 'danger')
+        return redirect(url_for('main.comprobantes_index'))
+
+    context = {
+        'client': client,
+        'generation_date': datetime.now().strftime('%Y-%m-%d %H:%M'),
+        'company_name': 'MC Innovación Financiera S.A.S',
+        'generated_by': current_user.nombre_completo,
+        'tipo': tipo
+    }
+
+    if tipo == 'analisis':
+        if not client.payment_diagnosis:
+            flash('El cliente no tiene un pago de análisis registrado.', 'warning')
+            return redirect(url_for('main.comprobantes_index'))
+        context['concepto'] = 'Pago de Análisis'
+        context['valor'] = client.payment_diagnosis.valor
+        context['fecha_pago'] = client.payment_diagnosis.fecha_pago
+        context['metodo_pago'] = client.payment_diagnosis.metodo_pago
+        
+    elif tipo == 'cuota':
+        installment_id = request.form.get('installment_id')
+        if not installment_id:
+            flash('Debe seleccionar una cuota.', 'warning')
+            return redirect(url_for('main.comprobantes_index'))
+            
+        inst = ContractInstallment.query.get_or_404(installment_id)
+        if inst.payment_contract.client_id != client.id:
+            flash('La cuota no pertenece a este cliente.', 'danger')
+            return redirect(url_for('main.comprobantes_index'))
+            
+        # Update status to 'Pagada' automatically
+        inst.estado = 'Pagada'
+        
+        context['concepto'] = inst.concepto or f"Cuota {inst.numero_cuota}"
+        context['valor'] = inst.valor
+        context['fecha_pago'] = inst.fecha_vencimiento
+        context['metodo_pago'] = inst.metodo_pago
+
+    else:
+        flash('Tipo de comprobante inválido.', 'danger')
+        return redirect(url_for('main.comprobantes_index'))
+
+    # Calculate IVA if client is responsible
+    if client.es_responsable_iva:
+        context['base_imponible'] = context['valor'] / 1.19
+        context['iva_amount'] = context['valor'] - context['base_imponible']
+    else:
+        context['base_imponible'] = context['valor']
+        context['iva_amount'] = 0
+
+    # Generar PDF
+    from services.pdf_service import PDFService
+    import uuid
+    import os
+    from flask import current_app, send_file
+    from models import db, Document
+
+    try:
+        pdf_buffer = PDFService.generate_pdf('comprobantes/receipt_pdf.html', context)
+        
+        # Guardar en sistema de archivos y DB
+        prefix = 'Comprobante_Analisis' if tipo == 'analisis' else 'Comprobante_Contrato'
+        filename = f"{prefix}_{client.numero_id}_{uuid.uuid4().hex[:8]}.pdf"
+        upload_folder = current_app.config['UPLOAD_FOLDER']
+        if not os.path.exists(upload_folder):
+            os.makedirs(upload_folder)
+            
+        pdf_path = os.path.join(upload_folder, filename)
+        
+        # Rewind buffer to start and write to file
+        pdf_buffer.seek(0)
+        with open(pdf_path, 'wb') as f:
+            f.write(pdf_buffer.read())
+            
+        # Crear registro en Documentos
+        new_doc = Document()
+        new_doc.filename = filename
+        new_doc.client_id = client.id
+        new_doc.uploaded_by_id = current_user.id
+        new_doc.visible_para_analista = True
+        new_doc.visible_para_cliente = True
+        
+        db.session.add(new_doc)
+        db.session.commit()
+
+        # Retornar vista con el PDF y opciones de compartir
+        return render_template('comprobantes/view.html', 
+                               filename=filename, 
+                               client=client, 
+                               tipo=tipo, 
+                               valor=context['valor'])
+        
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error al generar comprobante: {str(e)}', 'danger')
+        return redirect(url_for('main.comprobantes_index'))
+
 @main_bp.route('/document/<int:doc_id>/toggle_analyst_visibility', methods=['POST'])
 @login_required
 @role_required(['Abogado', 'Admin'])
@@ -230,6 +433,26 @@ def update_legal_status(obligation_id):
     new_status = request.form.get('estado_legal')
     obligation = FinancialService.update_legal_status(obligation_id, new_status)
     flash('Estado legal actualizado', 'success')
+    return redirect(url_for('main.client_detail', client_id=obligation.client_id))
+
+@main_bp.route('/obligation/<int:obligation_id>/edit', methods=['POST'])
+@login_required
+@role_required(['Admin', 'Abogado'])
+def edit_obligation(obligation_id):
+    obligation = FinancialObligation.query.get_or_404(obligation_id)
+    entidad = request.form.get('entidad')
+    estado = request.form.get('estado')
+    valor = request.form.get('valor')
+    
+    if entidad:
+        obligation.entidad = entidad
+    if estado:
+        obligation.estado = estado
+    if valor:
+        obligation.valor = float(valor)
+        
+    db.session.commit()
+    flash('Obligación actualizada exitosamente.', 'success')
     return redirect(url_for('main.client_detail', client_id=obligation.client_id))
 
 @main_bp.route('/client/<int:client_id>/edit', methods=['POST'])
@@ -290,12 +513,11 @@ def edit_client(client_id):
 def add_note(client_id):
     content = request.form.get('note_content', '').strip()
     if content:
-        new_note = ClientNote(
-            content=content,
-            author_id=current_user.id,
-            client_id=client_id,
-            timestamp=get_colombia_now()
-        )
+        new_note = ClientNote()
+        new_note.content = content
+        new_note.author_id = current_user.id
+        new_note.client_id = client_id
+        new_note.timestamp = get_colombia_now()
         db.session.add(new_note)
         db.session.commit()
         flash('Nota agregada exitosamente', 'success')
@@ -419,6 +641,7 @@ def respond_negotiation(negotiation_id):
     
     accion = request.form.get('accion')
     
+    
     if accion == 'aceptar':
         negotiation.aceptada_por_cliente = True
         negotiation.fecha_respuesta_cliente = get_colombia_now()
@@ -434,3 +657,49 @@ def respond_negotiation(negotiation_id):
         flash('Acción no válida.', 'warning')
     
     return redirect(url_for('main.client_portal'))
+
+@main_bp.route('/api/notifications/unread')
+@login_required
+def get_unread_notifications():
+    if not current_user.is_authenticated:
+        return jsonify({'count': 0, 'notifications': []})
+        
+    notifications_list = []
+    
+    if current_user.rol == 'Cliente':
+        user_client = Client.query.filter_by(login_user_id=current_user.id).first()
+        if user_client:
+            unread_msgs = CaseMessage.query.filter(
+                CaseMessage.client_id == user_client.id,
+                CaseMessage.sender_id != current_user.id,
+                CaseMessage.is_read_by_recipient == False
+            ).order_by(CaseMessage.timestamp.desc()).all()
+            
+            for msg in unread_msgs:
+                notifications_list.append({
+                    'id': msg.id,
+                    'sender': 'Mi Abogado',
+                    'message': msg.content[:50] + ('...' if len(msg.content) > 50 else ''),
+                    'client_id': user_client.id,
+                    'url': url_for('main.client_portal')
+                })
+            
+    elif current_user.rol in ['Abogado', 'Admin']:
+        query = CaseMessage.query.filter(
+            CaseMessage.sender_id != current_user.id,
+            CaseMessage.is_read_by_recipient == False
+        )
+        if current_user.rol == 'Abogado':
+            query = query.join(Client).filter(Client.abogado_id == current_user.id)
+            
+        unread_msgs = query.order_by(CaseMessage.timestamp.desc()).all()
+        for msg in unread_msgs:
+            notifications_list.append({
+                'id': msg.id,
+                'sender': msg.client.nombre,
+                'message': msg.content[:50] + ('...' if len(msg.content) > 50 else ''),
+                'client_id': msg.client_id,
+                'url': url_for('main.client_detail', client_id=msg.client_id)
+            })
+
+    return jsonify({'count': len(notifications_list), 'notifications': notifications_list})

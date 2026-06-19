@@ -44,12 +44,15 @@
                         <td>{{ user.telefono or '-' }}</td>
                         <td>
                             {% if user.id != current_user.id %}
+                            <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#changePassModal{{ user.id }}" title="Cambiar Contraseña">
+                                <i class="bi bi-key"></i>
+                            </button>
                             <form action="{{ url_for('admin.delete_user', user_id=user.id) }}" method="POST"
                                 onsubmit="return confirm('¿Estás seguro de eliminar a este usuario? Esta acción es irreversible.');"
                                 style="display:inline;">
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
                                 <button type="submit" class="btn btn-sm btn-danger" title="Eliminar">
-                                    <i class="bi bi-trash"></i> Eliminar
+                                    <i class="bi bi-trash"></i>
                                 </button>
                             </form>
                             {% else %}
@@ -286,4 +289,35 @@
         toggleReassignMode();
     });
 </script>
+
+<!-- Modals Cambiar Contraseña -->
+{% for user in users.items %}
+{% if user.id != current_user.id %}
+<div class="modal fade" id="changePassModal{{ user.id }}" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title"><i class="bi bi-key me-2"></i>Cambiar Contraseña</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{{ url_for('admin.change_user_password', user_id=user.id) }}" method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                <div class="modal-body">
+                    <p>Nueva contraseña para <strong>{{ user.nombre_completo }}</strong>:</p>
+                    <div class="mb-3">
+                        <label class="form-label">Contraseña</label>
+                        <input type="password" class="form-control" name="new_password" required minlength="4">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Actualizar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endfor %}
+
 {% endblock %}
