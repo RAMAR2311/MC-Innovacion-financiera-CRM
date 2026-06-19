@@ -703,9 +703,10 @@ def get_unread_notifications():
             
         unread_msgs = query.order_by(CaseMessage.timestamp.desc()).all()
         for msg in unread_msgs:
+            sender_name = msg.client.nombre if msg.client else "Cliente Desconocido"
             notifications_list.append({
                 'id': msg.id,
-                'sender': msg.client.nombre,
+                'sender': sender_name,
                 'message': msg.content[:50] + ('...' if len(msg.content) > 50 else ''),
                 'client_id': msg.client_id,
                 'url': url_for('main.client_detail', client_id=msg.client_id)
