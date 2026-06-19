@@ -233,12 +233,15 @@
 
             let notifiedIds = new Set();
             
-            // Pedir permiso para notificaciones
-            if ("Notification" in window) {
-                if (Notification.permission !== "granted" && Notification.permission !== "denied") {
-                    Notification.requestPermission();
+            // Pedir permiso para notificaciones en la primera interacción para que el navegador no lo bloquee
+            document.addEventListener('click', function initNotifications() {
+                if ("Notification" in window) {
+                    if (Notification.permission === "default" || Notification.permission !== "granted" && Notification.permission !== "denied") {
+                        Notification.requestPermission();
+                    }
                 }
-            }
+                document.removeEventListener('click', initNotifications);
+            }, { once: true });
 
             function fetchNotifications() {
                 fetch('/api/notifications/unread')
@@ -253,7 +256,7 @@
                                     if ("Notification" in window && Notification.permission === "granted") {
                                         const n = new Notification("Nuevo mensaje de " + notif.sender, {
                                             body: notif.message,
-                                            icon: "{{ url_for('static', filename='img/favicon.jpg') }}",
+                                            icon: "{{ url_for('static', filename='img/favicon.jpg', _external=True) }}",
                                             tag: 'msg-' + notif.id // Evita duplicados
                                         });
                                         
