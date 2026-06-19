@@ -256,7 +256,7 @@
                                     if ("Notification" in window && Notification.permission === "granted") {
                                         const n = new Notification("Nuevo mensaje de " + notif.sender, {
                                             body: notif.message,
-                                            icon: "{{ url_for('static', filename='img/favicon.jpg', _external=True) }}",
+                                            icon: window.location.origin + "{{ url_for('static', filename='img/favicon.jpg') }}",
                                             tag: 'msg-' + notif.id // Evita duplicados
                                         });
                                         
