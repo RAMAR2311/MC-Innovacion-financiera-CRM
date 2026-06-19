@@ -1506,5 +1506,65 @@
             });
         });
     });
-</script>
+    </script>
+
+    <!-- Auto-refresh chat messages script -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const chatContainer = document.getElementById('chatMessages');
+            if (chatContainer) {
+                // Auto scroll on initial load
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+
+                // Poll every 5 seconds
+                setInterval(function() {
+                    // Only fetch if the chat tab is visible
+                    const chatTab = document.getElementById('chat');
+                    if (chatTab && chatTab.classList.contains('active')) {
+                        fetch("{{ url_for('chat.get_messages', client_id=client.id) }}")
+                            .then(res => res.json())
+                            .then(data => {
+                                if (data.messages) {
+                                    const isScrolledToBottom = chatContainer.scrollHeight - chatContainer.clientHeight <= chatContainer.scrollTop + 10;
+                                    chatContainer.innerHTML = '';
+                                    
+                                    if (data.messages.length === 0) {
+                                        chatContainer.innerHTML = '<div class="text-center text-muted mt-5">No hay mensajes en el historial.</div>';
+                                    } else {
+                                        data.messages.forEach(msg => {
+                                            const flexDiv = document.createElement('div');
+                                            flexDiv.className = 'd-flex mb-2 ' + (msg.is_me ? 'justify-content-end' : 'justify-content-start');
+                                            
+                                            const bubbleDiv = document.createElement('div');
+                                            bubbleDiv.className = 'chat-bubble ' + (msg.is_me ? 'chat-me' : 'chat-other');
+                                            
+                                            const senderDiv = document.createElement('div');
+                                            senderDiv.className = 'fw-bold small mb-1';
+                                            senderDiv.textContent = msg.sender_name;
+                                            
+                                            const timeDiv = document.createElement('div');
+                                            timeDiv.className = 'text-end';
+                                            timeDiv.style.fontSize = '0.7rem';
+                                            timeDiv.style.opacity = '0.6';
+                                            timeDiv.textContent = msg.timestamp;
+                                            
+                                            bubbleDiv.appendChild(senderDiv);
+                                            bubbleDiv.appendChild(document.createTextNode(msg.content));
+                                            bubbleDiv.appendChild(timeDiv);
+                                            flexDiv.appendChild(bubbleDiv);
+                                            
+                                            chatContainer.appendChild(flexDiv);
+                                        });
+                                    }
+                                    
+                                    if (isScrolledToBottom) {
+                                        chatContainer.scrollTop = chatContainer.scrollHeight;
+                                    }
+                                }
+                            });
+                    }
+                }, 5000);
+            }
+        });
+    </script>
 {% endblock %}

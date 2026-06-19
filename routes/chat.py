@@ -53,3 +53,35 @@ def send_message(client_id):
         flash('Error al enviar el mensaje. Intenta nuevamente.', 'danger')
     
     return redirect(request.referrer)
+
+@chat_bp.route('/api/messages/<int:client_id>', methods=['GET'])
+@login_required
+def get_messages(client_id):
+    client = Client.query.get_or_404(client_id)
+    
+    # Validation permissions
+    if current_user.rol == 'Cliente':
+        if not client.login_user_id or client.login_user_id != current_user.id:
+             return {'error': 'No autorizado'}, 403
+    elif current_user.rol in ['Abogado', 'Admin', 'Analista', 'Aliado', 'Radicador', 'Negociador']:
+        pass
+    else:
+        return {'error': 'Rol no autorizado'}, 403
+
+    messages = CaseMessage.query.filter_by(client_id=client.id).order_by(CaseMessage.timestamp.asc()).all()
+    
+    # Mark as read
+    unread_msgs = [m for m in messages if m.sender_id != current_user.id and not m.is_read_by_recipient]
+    if unread_msgs:
+        for msg in unread_msgs:
+            msg.is_read_by_recipient = True
+        db.session.commit()
+
+    messages_data = [{
+        'is_me': msg.sender_id == current_user.id,
+        'sender_name': 'Yo' if msg.sender_id == current_user.id else msg.sender.nombre_completo,
+        'content': msg.content,
+        'timestamp': msg.timestamp.strftime('%d/%m %H:%M')
+    } for msg in messages]
+
+    return {'messages': messages_data}

@@ -85,16 +85,22 @@ def inject_notifications():
                     'id': user_client.id
                 }
             
-    elif current_user.rol in ['Abogado', 'Admin']:
-        # Para abogados, solo mensajes de sus clientes asignados.
-        # Para Admin, podríamos mostrar todos o seguir la misma lógica.
+    elif current_user.rol in ['Admin', 'Analista', 'Abogado', 'Radicador', 'Negociador', 'Aliado']:
+        from sqlalchemy import or_
         query = CaseMessage.query.filter(
             CaseMessage.sender_id != current_user.id,
             CaseMessage.is_read_by_recipient == False
         )
         
-        if current_user.rol == 'Abogado':
-            query = query.join(Client).filter(Client.abogado_id == current_user.id)
+        if current_user.rol != 'Admin':
+            query = query.join(Client).filter(
+                or_(
+                    Client.analista_id == current_user.id,
+                    Client.abogado_id == current_user.id,
+                    Client.radicador_id == current_user.id,
+                    Client.negociador_id == current_user.id
+                )
+            )
         
         unread_msgs = query.all()
         total_count = len(unread_msgs)
