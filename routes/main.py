@@ -329,10 +329,11 @@ def generar_comprobante():
 
     # Calculate IVA if client is responsible
     if client.es_responsable_iva:
-        context['base_imponible'] = context['valor'] / 1.19
-        context['iva_amount'] = context['valor'] - context['base_imponible']
+        valor_float = float(context['valor'])
+        context['base_imponible'] = valor_float / 1.19
+        context['iva_amount'] = valor_float - context['base_imponible']
     else:
-        context['base_imponible'] = context['valor']
+        context['base_imponible'] = float(context['valor'])
         context['iva_amount'] = 0
 
     # Generar PDF
