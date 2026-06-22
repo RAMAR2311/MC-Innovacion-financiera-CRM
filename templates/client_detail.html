@@ -905,8 +905,19 @@
                             <div class="row g-3">
                                 {% for neg in client_negotiations %}
                                 <div class="col-md-6">
+                                    {% set border_color = '#dc3545' %}
+                                    {% if neg.estado == 'Negociada' %}
+                                        {% set border_color = '#198754' %}
+                                    {% elif neg.estado == 'En Proceso' %}
+                                        {% set border_color = '#0dcaf0' %}
+                                    {% elif neg.estado == 'Pendiente' %}
+                                        {% set border_color = '#ffc107' %}
+                                    {% elif neg.estado == 'Finalizada' %}
+                                        {% set border_color = '#212529' %}
+                                    {% endif %}
+                                    {% set style_attr = 'style="border-left: 4px solid ' ~ border_color ~ ' !important;"' %}
                                     <div class="border rounded p-3 position-relative h-100"
-                                        style="border-left: 4px solid {% if neg.estado == 'Negociada' %}#198754{% elif neg.estado == 'En Proceso' %}#0dcaf0{% elif neg.estado == 'Pendiente' %}#ffc107{% elif neg.estado == 'Finalizada' %}#212529{% else %}#dc3545{% endif %} !important;">
+                                        {{ style_attr | safe }}>
                                         
                                         <div class="d-flex justify-content-between align-items-start mb-2">
                                             <div>
@@ -1513,15 +1524,13 @@
         document.addEventListener('DOMContentLoaded', function() {
             const chatContainer = document.getElementById('chatMessages');
             if (chatContainer) {
-                // Auto scroll on initial load
                 chatContainer.scrollTop = chatContainer.scrollHeight;
 
-                // Poll every 5 seconds
-                setInterval(function() {
-                    // Only fetch if the chat tab is visible
+                function fetchChatMessages() {
                     const chatTab = document.getElementById('chat');
                     if (chatTab && chatTab.classList.contains('active')) {
-                        fetch("{{ url_for('chat.get_messages', client_id=client.id) }}")
+                        var isVisible = (document.visibilityState === 'visible');
+                        fetch("{{ url_for('chat.get_messages', client_id=client.id) }}?mark_read=" + isVisible)
                             .then(res => res.json())
                             .then(data => {
                                 if (data.messages) {
@@ -1563,7 +1572,15 @@
                                 }
                             });
                     }
-                }, 5000);
+                }
+
+                setInterval(fetchChatMessages, 5000);
+
+                document.addEventListener('visibilitychange', function() {
+                    if (document.visibilityState === 'visible') {
+                        fetchChatMessages();
+                    }
+                });
             }
         });
     </script>

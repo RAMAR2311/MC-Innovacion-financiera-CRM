@@ -11,3 +11,10 @@ class Config:
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_ENGINE_OPTIONS = {"pool_pre_ping": True}
     UPLOAD_FOLDER = 'uploads'
+
+    # Cookies seguras para producción con HTTPS
+    SESSION_COOKIE_SECURE = os.environ.get('FLASK_ENV') != 'development'
+    SESSION_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_SAMESITE = 'Lax'
+    REMEMBER_COOKIE_SECURE = os.environ.get('FLASK_ENV') != 'development'
+    REMEMBER_COOKIE_HTTPONLY = True

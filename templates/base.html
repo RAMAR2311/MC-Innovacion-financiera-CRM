@@ -121,6 +121,12 @@
                             {% endif %}
                         </ul>
                     </li>
+                    <li class="nav-item me-2">
+                        <button id="btnEnableNotifications" class="btn btn-sm btn-outline-warning mt-1"
+                            style="display:none;" onclick="requestNotifPermission()" title="Activar notificaciones de escritorio">
+                            <i class="bi bi-bell-slash me-1"></i>Activar
+                        </button>
+                    </li>
                     <li class="nav-item"><span class="nav-link text-light">Hola, {{ current_user.nombre_completo
                             }}</span></li>
                     <li class="nav-item">
@@ -225,75 +231,200 @@
 
     <!-- Script para notificaciones de escritorio / background -->
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            // Check if user is authenticated (via a JS variable or by checking an element)
-            // If the user has the notifications dropdown, they are logged in.
-            const hasNotifications = document.getElementById('navbarDropdownNotifications');
-            if (!hasNotifications) return;
+        // URLs generadas por Flask (compatibles con reverse proxy y subpaths)
+        const NOTIFICATIONS_URL = "{{ url_for('main.get_unread_notifications') }}";
+        const FAVICON_URL = "{{ url_for('static', filename='img/favicon.jpg') }}";
+        const IS_CLIENTE = "{{ 'true' if current_user.is_authenticated and current_user.rol == 'Cliente' else 'false' }}" === "true";
 
-            let notifiedIds = new Set();
-            
-            // Pedir permiso para notificaciones en la primera interacción para que el navegador no lo bloquee
-            document.addEventListener('click', function initNotifications() {
-                if ("Notification" in window) {
-                    if (Notification.permission === "default" || Notification.permission !== "granted" && Notification.permission !== "denied") {
-                        Notification.requestPermission();
+        let notifiedIds = new Set();
+        let pollingStarted = false;
+        let initialLoadDone = false;
+        let pollingInterval = null;
+
+        // Solicitar permiso de notificaciones de escritorio (desde el botón)
+        function requestNotifPermission() {
+            if (!("Notification" in window)) return;
+
+            Notification.requestPermission().then(function(permission) {
+                var btn = document.getElementById('btnEnableNotifications');
+                if (permission === 'granted') {
+                    if (btn) btn.style.display = 'none';
+                } else if (permission === 'denied') {
+                    if (btn) {
+                        btn.innerHTML = '<i class="bi bi-bell-slash me-1"></i>Bloqueado';
+                        btn.classList.remove('btn-outline-warning');
+                        btn.classList.add('btn-outline-secondary');
+                        btn.disabled = true;
                     }
                 }
-                document.removeEventListener('click', initNotifications);
-            }, { once: true });
+                // Si es 'default' (cerró sin decidir), el botón queda visible
+            });
+        }
 
-            function fetchNotifications() {
-                fetch('/api/notifications/unread')
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.notifications && data.notifications.length > 0) {
-                            data.notifications.forEach(notif => {
-                                if (!notifiedIds.has(notif.id)) {
-                                    notifiedIds.add(notif.id);
-                                    
-                                    // Mostrar notificación si se tiene permiso
-                                    if ("Notification" in window && Notification.permission === "granted") {
-                                        const n = new Notification("Nuevo mensaje de " + notif.sender, {
+        // Reconstruir dinámicamente el dropdown de la campanita
+        function rebuildDropdown(grouped) {
+            var dropdownMenu = document.querySelector('#navbarDropdownNotifications + .dropdown-menu');
+            if (!dropdownMenu) return;
+
+            // Limpiar contenido existente (excepto el header)
+            dropdownMenu.innerHTML = '<li class="dropdown-header border-bottom pb-2 mb-2">Mensajes Nuevos</li>';
+
+            var keys = Object.keys(grouped);
+            if (keys.length > 0) {
+                keys.forEach(function(clientId) {
+                    var info = grouped[clientId];
+                    var li = document.createElement('li');
+                    var a = document.createElement('a');
+                    a.className = 'dropdown-item d-flex justify-content-between align-items-center py-2';
+                    a.href = info.url;
+                    a.innerHTML = '<span><i class="bi bi-chat-left-text me-2"></i>' + info.name + '</span>' +
+                                  '<span class="badge bg-primary rounded-pill">' + info.count + '</span>';
+                    li.appendChild(a);
+                    dropdownMenu.appendChild(li);
+                });
+            } else {
+                var li = document.createElement('li');
+                li.innerHTML = '<span class="dropdown-item text-muted text-center py-3">No tienes mensajes nuevos</span>';
+                dropdownMenu.appendChild(li);
+            }
+        }
+
+        // Actualizar badge y campanita
+        function updateBadge(count) {
+            var bellIcon = document.querySelector('#navbarDropdownNotifications i');
+            var badge = document.querySelector('#navbarDropdownNotifications .badge');
+
+            if (count > 0) {
+                if (bellIcon) {
+                    bellIcon.className = 'bi bi-bell-fill text-warning';
+                }
+                if (badge) {
+                    badge.childNodes[0].nodeValue = count + ' ';
+                } else {
+                    var newBadge = document.createElement('span');
+                    newBadge.className = 'position-absolute top-10 start-100 translate-middle badge rounded-pill bg-danger';
+                    newBadge.innerHTML = count + ' <span class="visually-hidden">mensajes no leídos</span>';
+                    document.getElementById('navbarDropdownNotifications').appendChild(newBadge);
+                }
+            } else {
+                if (bellIcon) {
+                    bellIcon.className = 'bi bi-bell';
+                }
+                if (badge) {
+                    badge.remove();
+                }
+            }
+        }
+
+        function fetchNotifications() {
+            // Permitir fetch incluso si la pestaña está en segundo plano para las notificaciones de escritorio
+
+            fetch(NOTIFICATIONS_URL, { credentials: 'same-origin' })
+                .then(function(response) {
+                    if (response.status === 401 || response.status === 302 || response.redirected) {
+                        // Sesión expirada - detener polling
+                        console.warn("Sesión expirada, deteniendo polling de notificaciones.");
+                        if (pollingInterval) clearInterval(pollingInterval);
+                        return null;
+                    }
+                    if (!response.ok) throw new Error('HTTP ' + response.status);
+                    return response.json();
+                })
+                .then(function(data) {
+                    if (!data) return;
+
+                    // SIEMPRE actualizar badge y dropdown
+                    updateBadge(data.count || 0);
+                    if (data.grouped) {
+                        rebuildDropdown(data.grouped);
+                    }
+
+                    // Notificaciones de escritorio (solo para mensajes NUEVOS después de la carga inicial)
+                    if (data.notifications && data.notifications.length > 0) {
+                        data.notifications.forEach(function(notif) {
+                            if (!notifiedIds.has(notif.id)) {
+                                notifiedIds.add(notif.id);
+
+                                // Solo mostrar notificación de escritorio si hay permiso y no es la carga inicial
+                                if (initialLoadDone && "Notification" in window && Notification.permission === "granted") {
+                                    try {
+                                        var n = new Notification("Nuevo mensaje de " + notif.sender, {
                                             body: notif.message,
-                                            icon: window.location.origin + "{{ url_for('static', filename='img/favicon.jpg') }}",
-                                            tag: 'msg-' + notif.id // Evita duplicados
+                                            icon: FAVICON_URL,
+                                            tag: 'msg-' + notif.id
                                         });
-                                        
+
                                         n.onclick = function() {
                                             window.focus();
                                             window.location.href = notif.url;
                                             n.close();
                                         };
+
+                                        setTimeout(function() { n.close(); }, 8000);
+                                    } catch (e) {
+                                        console.warn("Error creando notificación:", e);
                                     }
                                 }
-                            });
-                            
-                            // Actualizar el contador en la UI si es posible
-                            const badge = document.querySelector('#navbarDropdownNotifications .badge');
-                            if (badge) {
-                                badge.childNodes[0].nodeValue = data.count + " ";
-                            } else if (data.count > 0) {
-                                // Reload page to show new badge if it didn't exist? Or just add it via DOM manipulation.
-                                // For simplicity, we just rely on the notification.
                             }
-                        }
-                    })
-                    .catch(err => console.error("Error fetching notifications:", err));
-            }
+                        });
+                    }
+                })
+                .catch(function(err) {
+                    console.error("Error fetching notifications:", err);
+                });
+        }
 
-            // Iniciar polling si se dio permiso
-            if ("Notification" in window) {
-                // Fetch initially to populate notifiedIds without showing alerts for old unread ones
-                fetch('/api/notifications/unread')
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.notifications) {
-                            data.notifications.forEach(notif => notifiedIds.add(notif.id));
-                        }
-                        // Start polling every 10 seconds
-                        setInterval(fetchNotifications, 10000);
-                    });
+        function startPolling() {
+            if (pollingStarted) return;
+            pollingStarted = true;
+
+            // Carga inicial: poblar notifiedIds SIN mostrar notificaciones de escritorio
+            fetch(NOTIFICATIONS_URL, { credentials: 'same-origin' })
+                .then(function(response) {
+                    if (!response.ok) throw new Error('HTTP ' + response.status);
+                    return response.json();
+                })
+                .then(function(data) {
+                    if (data.notifications) {
+                        data.notifications.forEach(function(notif) {
+                            notifiedIds.add(notif.id);
+                        });
+                    }
+                    // Actualizar badge y dropdown con datos iniciales
+                    updateBadge(data.count || 0);
+                    if (data.grouped) {
+                        rebuildDropdown(data.grouped);
+                    }
+                    // Marcar carga inicial completa
+                    initialLoadDone = true;
+                    // Polling cada 10 segundos
+                    pollingInterval = setInterval(fetchNotifications, 10000);
+                })
+                .catch(function(err) {
+                    console.error("Error init notifications:", err);
+                    // Reintentar en 30 segundos
+                    setTimeout(function() { pollingStarted = false; startPolling(); }, 30000);
+                });
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            var hasNotifications = document.getElementById('navbarDropdownNotifications');
+            if (!hasNotifications) return;
+
+            // SIEMPRE iniciar polling para actualizar badge (independiente del permiso de escritorio)
+            startPolling();
+
+            // Cuando el usuario vuelve a la pestaña, actualizar inmediatamente
+            document.addEventListener('visibilitychange', function() {
+                if (document.visibilityState === 'visible' && initialLoadDone) {
+                    fetchNotifications();
+                }
+            });
+
+            // Mostrar botón "Activar" solo si el navegador soporta notificaciones y no se ha preguntado
+            if ("Notification" in window && Notification.permission === "default") {
+                var btn = document.getElementById('btnEnableNotifications');
+                if (btn) btn.style.display = 'inline-block';
             }
         });
     </script>

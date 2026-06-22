@@ -70,12 +70,15 @@ def get_messages(client_id):
 
     messages = CaseMessage.query.filter_by(client_id=client.id).order_by(CaseMessage.timestamp.asc()).all()
     
-    # Mark as read
-    unread_msgs = [m for m in messages if m.sender_id != current_user.id and not m.is_read_by_recipient]
-    if unread_msgs:
-        for msg in unread_msgs:
-            msg.is_read_by_recipient = True
-        db.session.commit()
+    # Mark as read (only if mark_read is not explicitly false)
+    mark_read_param = request.args.get('mark_read', 'true').lower()
+    
+    if mark_read_param != 'false':
+        unread_msgs = [m for m in messages if m.sender_id != current_user.id and not m.is_read_by_recipient]
+        if unread_msgs:
+            for msg in unread_msgs:
+                msg.is_read_by_recipient = True
+            db.session.commit()
 
     messages_data = [{
         'is_me': msg.sender_id == current_user.id,

@@ -663,9 +663,10 @@ def respond_negotiation(negotiation_id):
 @login_required
 def get_unread_notifications():
     if not current_user.is_authenticated:
-        return jsonify({'count': 0, 'notifications': []})
+        return jsonify({'count': 0, 'notifications': [], 'grouped': {}})
         
     notifications_list = []
+    grouped = {}
     
     if current_user.rol == 'Cliente':
         user_client = Client.query.filter_by(login_user_id=current_user.id).first()
@@ -674,7 +675,7 @@ def get_unread_notifications():
                 CaseMessage.client_id == user_client.id,
                 CaseMessage.sender_id != current_user.id,
                 CaseMessage.is_read_by_recipient == False
-            ).order_by(CaseMessage.timestamp.desc()).all()
+            ).order_by(CaseMessage.timestamp.desc()).limit(50).all()
             
             for msg in unread_msgs:
                 notifications_list.append({
@@ -684,6 +685,13 @@ def get_unread_notifications():
                     'client_id': user_client.id,
                     'url': url_for('main.client_portal')
                 })
+            
+            if unread_msgs:
+                grouped[str(user_client.id)] = {
+                    'name': 'Mi Abogado',
+                    'count': len(unread_msgs),
+                    'url': url_for('main.client_portal')
+                }
             
     elif current_user.rol in ['Admin', 'Analista', 'Abogado', 'Radicador', 'Negociador', 'Aliado']:
         from sqlalchemy import or_
@@ -701,7 +709,7 @@ def get_unread_notifications():
                 )
             )
             
-        unread_msgs = query.order_by(CaseMessage.timestamp.desc()).all()
+        unread_msgs = query.order_by(CaseMessage.timestamp.desc()).limit(50).all()
         for msg in unread_msgs:
             sender_name = msg.client.nombre if msg.client else "Cliente Desconocido"
             notifications_list.append({
@@ -711,5 +719,14 @@ def get_unread_notifications():
                 'client_id': msg.client_id,
                 'url': url_for('main.client_detail', client_id=msg.client_id)
             })
+            
+            c_id = str(msg.client_id)
+            if c_id not in grouped:
+                grouped[c_id] = {
+                    'name': sender_name,
+                    'count': 0,
+                    'url': url_for('main.client_detail', client_id=msg.client_id)
+                }
+            grouped[c_id]['count'] += 1
 
-    return jsonify({'count': len(notifications_list), 'notifications': notifications_list})
+    return jsonify({'count': len(notifications_list), 'notifications': notifications_list, 'grouped': grouped})

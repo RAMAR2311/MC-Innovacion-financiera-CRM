@@ -12,8 +12,14 @@ from flask_wtf.csrf import CSRFProtect, CSRFError
 
 from flask_migrate import Migrate
 
+from werkzeug.middleware.proxy_fix import ProxyFix
+
 app = Flask(__name__)
 app.config.from_object(Config)
+
+# ProxyFix para funcionar correctamente detrás de Nginx reverse proxy
+# Confía en los headers X-Forwarded-For, X-Forwarded-Proto, X-Forwarded-Host, X-Forwarded-Prefix
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 
 csrf = CSRFProtect(app)
 

@@ -773,9 +773,9 @@
         // Auto-refresh chat messages script
         const chatContainer = document.getElementById('chatMessages');
         if (chatContainer) {
-            // Poll every 5 seconds
-            setInterval(function() {
-                fetch("{{ url_for('chat.get_messages', client_id=client.id) }}")
+            function fetchChatMessages() {
+                var isVisible = (document.visibilityState === 'visible');
+                fetch("{{ url_for('chat.get_messages', client_id=client.id) }}?mark_read=" + isVisible)
                     .then(res => res.json())
                     .then(data => {
                         if (data.messages) {
@@ -809,7 +809,17 @@
                             }
                         }
                     });
-            }, 5000);
+            }
+            
+            // Poll every 5 seconds
+            setInterval(fetchChatMessages, 5000);
+            
+            // Fetch immediately when tab becomes visible
+            document.addEventListener('visibilitychange', function() {
+                if (document.visibilityState === 'visible') {
+                    fetchChatMessages();
+                }
+            });
         }
     });
 </script>
